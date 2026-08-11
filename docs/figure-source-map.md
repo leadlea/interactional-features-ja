@@ -15,6 +15,14 @@ Terms:
 | Label | Kind | Content | Generator | Source data | Upstream |
 |---|---|---|---|---|---|
 | `tab:feature_def` | table | 19 feature definitions | `gen_paper_figs_v2.py::gen_tab_feature_definitions` | `scripts/paper_figs/feature_definitions.py` (static) | — |
+
+`tab_feature_definitions.tex` is the only generated table whose caption is in
+Japanese. `gen_tab_feature_definitions(out_dir, lang="en")` writes
+`tab_feature_definitions_en.tex`, which the English manuscript uses; the table
+body is byte-identical and only the caption and the longtable continuation
+markers differ. Every other generated table, and every figure, contains no
+Japanese text: axis labels, legends and table bodies are English, and the
+data-derived labels are gender `F`/`M` and numeric age.
 | `fig:feature_dist` | figure | feature distributions by category | `gen_paper_figs_v2.py::gen_feature_distribution` | `features_min/features_cejc_home2_hq1.parquet` | `extract_interaction_features_min.py` |
 | `tab:desc_stats_full` | table | descriptive statistics | `gen_paper_figs_v2.py::gen_descriptive_stats_full_table` | same features parquet | same |
 | `fig:corr_heatmap` | figure | correlation heatmap, block structure | `gen_paper_figs_v2.py::gen_corr_heatmap_block` | same features parquet | same |

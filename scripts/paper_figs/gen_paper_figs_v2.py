@@ -1926,7 +1926,7 @@ def gen_tab_baseline_vs_extended(results_dir: Path, out_dir: Path) -> None:
     out_path.write_text(latex, encoding="utf-8")
 
 
-def gen_tab_feature_definitions(out_dir: Path) -> None:
+def gen_tab_feature_definitions(out_dir: Path, lang: str = "ja") -> None:
     """Generate feature definitions LaTeX table with Classification column.
 
     Outputs a booktabs-style LaTeX longtable with 19 rows (explanatory
@@ -1936,11 +1936,21 @@ def gen_tab_feature_definitions(out_dir: Path) -> None:
     ``get_explanatory_features()``, which provides the ``classification``
     field ("Classical" or "Novel") for each feature.
 
+    The table body is language independent (identifiers and English summaries);
+    only the caption and the longtable continuation markers differ. This is the
+    single generated table that carries Japanese text, so the English
+    manuscript needs the ``lang="en"`` twin.
+
     Parameters
     ----------
     out_dir : Path
-        Directory where tab_feature_definitions.tex will be saved.
+        Directory where the table will be saved.
+    lang : {"ja", "en"}
+        Caption language. ``"ja"`` writes ``tab_feature_definitions.tex``;
+        ``"en"`` writes ``tab_feature_definitions_en.tex``.
     """
+    if lang not in ("ja", "en"):
+        raise ValueError(f"lang must be 'ja' or 'en', got {lang!r}")
     explanatory = get_explanatory_features()
 
     def _escape_latex(text: str) -> str:
@@ -1961,25 +1971,42 @@ def gen_tab_feature_definitions(out_dir: Path) -> None:
         )
 
     body = "\n".join(rows)
+    if lang == "ja":
+        caption = (
+            "19特徴量の定義．Class.列はClassical（既存研究ベース）または"
+            "Novel（新規提案）を示す．"
+            "変数名は実装上の識別子をそのまま記載している．"
+        )
+        continued = "\\tablename~\\thetable{}（続き）"
+        next_page = "（次ページに続く）"
+        filename = "tab_feature_definitions.tex"
+    else:
+        caption = (
+            "Definitions of the 19 interactional features. The Class.\\ column marks "
+            "each feature as Classical (established in prior work) or Novel "
+            "(introduced here). Names are the identifiers used in the implementation."
+        )
+        continued = "\\tablename~\\thetable{} (continued)"
+        next_page = "(continued on the next page)"
+        filename = "tab_feature_definitions_en.tex"
+
     latex = (
         "{\\footnotesize\n"
         "\\setlength{\\tabcolsep}{4pt}\n"
         "\\begin{longtable}{lllp{2.2cm}p{3.9cm}}\n"
-        "\\caption{19特徴量の定義．Class.列はClassical（既存研究ベース）または"
-        "Novel（新規提案）を示す．"
-        "変数名は実装上の識別子をそのまま記載している．}\n"
+        f"\\caption{{{caption}}}\n"
         "\\label{tab:feature_def}\\\\\n"
         "\\toprule\n"
         "Name & Cat. & Class. & Summary & Algorithm \\\\\n"
         "\\midrule\n"
         "\\endfirsthead\n"
-        "\\multicolumn{5}{c}{\\tablename~\\thetable{}（続き）}\\\\\n"
+        f"\\multicolumn{{5}}{{c}}{{{continued}}}\\\\\n"
         "\\toprule\n"
         "Name & Cat. & Class. & Summary & Algorithm \\\\\n"
         "\\midrule\n"
         "\\endhead\n"
         "\\midrule\n"
-        "\\multicolumn{5}{r}{（次ページに続く）}\\\\\n"
+        f"\\multicolumn{{5}}{{r}}{{{next_page}}}\\\\\n"
         "\\endfoot\n"
         "\\bottomrule\n"
         "\\endlastfoot\n"
@@ -1988,7 +2015,7 @@ def gen_tab_feature_definitions(out_dir: Path) -> None:
         "}\n"
     )
 
-    out_path = out_dir / "tab_feature_definitions.tex"
+    out_path = out_dir / filename
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(latex, encoding="utf-8")
 
@@ -3311,6 +3338,9 @@ def main(argv: list[str] | None = None) -> None:
         ("tab_descriptive_stats.tex", gen_tab_descriptive_stats, [features_parquet, out_dir]),
         ("tab_permutation_all.tex", gen_tab_permutation_all, [results_dir, out_dir]),
         ("tab_feature_definitions.tex", gen_tab_feature_definitions, [out_dir]),
+        # English caption twin for the English manuscript. Body is identical;
+        # only the caption and continuation markers differ.
+        ("tab_feature_definitions_en.tex", gen_tab_feature_definitions, [out_dir, "en"]),
         ("fig_feature_distribution.png", gen_feature_distribution, [features_df, out_dir]),
         ("tab_descriptive_stats_full.tex", gen_descriptive_stats_full_table, [features_df, out_dir]),
         ("fig_corr_heatmap_block.png + tab_corr_matrix.tex", gen_corr_heatmap_block, [features_df, out_dir]),
