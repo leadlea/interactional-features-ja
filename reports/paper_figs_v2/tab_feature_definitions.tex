@@ -1,0 +1,40 @@
+{\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{lllp{2.2cm}p{3.9cm}}
+\caption{19特徴量の定義．Class.列はClassical（既存研究ベース）またはNovel（新規提案）を示す．変数名は実装上の識別子をそのまま記載している．}
+\label{tab:feature_def}\\
+\toprule
+Name & Cat. & Class. & Summary & Algorithm \\
+\midrule
+\endfirsthead
+\multicolumn{5}{c}{\tablename~\thetable{}（続き）}\\
+\toprule
+Name & Cat. & Class. & Summary & Algorithm \\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r}{（次ページに続く）}\\
+\endfoot
+\bottomrule
+\endlastfoot
+PG\_speech\_ratio & PG & Classical & Speech ratio & Speaker's total speech time / total conversation time. missing if total\_time is 0 or missing. \\
+PG\_pause\_mean & PG & Classical & Mean pause duration & Mean of intra-speaker consecutive utterance gaps ($\geq$gap\_tol sec). missing if no qualifying gaps. \\
+PG\_pause\_p50 & PG & Classical & Median pause & 50th percentile of intra-speaker gaps. missing if no qualifying gaps. \\
+PG\_pause\_p90 & PG & Classical & 90th percentile pause & 90th percentile of intra-speaker gaps. missing if no qualifying gaps. \\
+PG\_resp\_gap\_mean & PG & Classical & Mean response gap & Mean of turn-taking gaps (prev\_end $\rightarrow$ resp\_start, $\geq$gap\_tol sec). missing if no qualifying gaps. \\
+PG\_resp\_gap\_p50 & PG & Classical & Median response gap & 50th percentile of turn-taking gaps. missing if no qualifying gaps. \\
+PG\_resp\_gap\_p90 & PG & Classical & 90th percentile response gap & 90th percentile of turn-taking gaps. missing if no qualifying gaps. \\
+FILL\_has\_any & FILL & Classical & Filler utterance rate & Proportion of speaker's utterances containing $\geq$1 filler (etto/ee/ano). missing if speaker has no utterances. \\
+FILL\_rate\_per\_100chars & FILL & Classical & Filler rate per 100 chars & Total filler count / (text character count / 100). missing if text\_len is 0. \\
+PG\_overlap\_rate & PG & Classical & Overlap rate & Proportion of turn-taking gaps < -gap\_tol (overlaps). \\
+IX\_oirmarker\_rate & IX & Novel & OIR marker rate & Proportion of responses starting with OIR markers (e?/eQ/nani? etc). Computed over all adjacent pairs where speaker is responder. \\
+IX\_oirmarker\_after\_question\_rate & IX & Novel & Post-question OIR rate & OIR marker rate when previous utterance is a question. missing if no question-preceded pairs. \\
+IX\_yesno\_rate & IX & Novel & Yes/No response rate & Proportion of responses starting with yes/no prefixes (hai/un/ee/iie etc). \\
+IX\_yesno\_after\_question\_rate & IX & Novel & Post-question Yes/No rate & Yes/No rate when previous utterance is a question. missing if no question-preceded pairs. \\
+IX\_lex\_overlap\_mean & IX & Novel & Lexical overlap & Mean character-bigram Jaccard coefficient between previous utterance and response. \\
+RESP\_NE\_AIZUCHI\_RATE & RESP & Novel & Post-NE aizuchi rate & Proportion of responses that start with aizuchi prefixes when previous utterance ends with NE particle. missing if n\_pairs\_after\_NE is 0. \\
+RESP\_NE\_ENTROPY & RESP & Novel & Post-NE response entropy & Shannon entropy of response-initial tokens after NE sentence-final particle. missing if n\_pairs\_after\_NE is 0. \\
+RESP\_YO\_ENTROPY & RESP & Novel & Post-YO response entropy & Shannon entropy of response-initial tokens after YO sentence-final particle. missing if n\_pairs\_after\_YO is 0. \\
+PG\_pause\_variability & PG & Novel & Pause duration CV & Coefficient of variation (std / mean) of intra-speaker pause durations. missing if fewer than 2 pauses or mean is 0. \\
+\end{longtable}
+}

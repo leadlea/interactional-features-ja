@@ -1,0 +1,23 @@
+# Pinned to the versions used to produce the reported results (Python 3.12).
+# Exact pins are intentional: the analysis reports permutation and bootstrap
+# p-values, so the RNG and estimator implementations need to be reproducible.
+
+# --- data handling ---
+pandas==3.0.0
+numpy==2.3.5
+pyarrow==23.0.0
+
+# --- statistics / modelling ---
+scikit-learn==1.8.0
+scipy==1.17.0
+
+# --- figures ---
+matplotlib==3.10.8
+seaborn==0.13.2
+
+# --- LLM scoring (AWS Bedrock) ---
+boto3==1.42.30
+
+# --- tests ---
+pytest==9.0.2
+hypothesis==6.151.10

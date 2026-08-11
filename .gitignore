@@ -1,0 +1,50 @@
+# ---------------------------------------------------------------------------
+# Corpus data and derived artifacts are NOT tracked.
+#
+# The CEJC corpus is distributed under a data use agreement and cannot be
+# redistributed here. Everything derived from it (utterance tables, monologues,
+# feature matrices, model scores) stays local. Identity of the derived files is
+# pinned by sha256 instead — see docs/data-availability.md.
+# ---------------------------------------------------------------------------
+artifacts/**
+!artifacts/README.md
+!artifacts/.gitkeep
+
+data/**
+!data/README.md
+
+# Aggregated result tables are reproducible from the scripts; only the figures
+# and LaTeX tables that appear in the manuscript are tracked (reports/).
+
+# --- python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- editors / OS ---
+.DS_Store
+.vscode/
+.idea/
+
+# --- LaTeX build products ---
+*.aux
+*.dvi
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+
+# --- scratch ---
+tmp/
+logs/
+*.bak
+*.bak.*
+*.bak_*

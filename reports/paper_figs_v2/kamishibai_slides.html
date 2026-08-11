@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>紙芝居スライド — 相互行為特徴量の定量化指標の提案</title>
+  <style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Meiryo", sans-serif;
+  background: #f5f5f5;
+  color: #333;
+}
+.slide {
+  width: 960px;
+  min-height: 720px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+  padding: 48px 56px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  page-break-after: always;
+}
+.slide-number {
+  align-self: flex-end;
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 8px;
+}
+.slide-title {
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 24px;
+  color: #1a1a2e;
+}
+.slide-images {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  margin-bottom: 24px;
+}
+.slide-images img {
+  max-width: 100%;
+  max-height: 440px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+.slide-images.multi img {
+  max-width: 48%;
+  max-height: 380px;
+}
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 400px;
+  height: 300px;
+  background: #fafafa;
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  color: #999;
+  font-size: 16px;
+  text-align: center;
+  padding: 16px;
+}
+.slide-conclusion {
+  font-size: 20px;
+  line-height: 1.6;
+  text-align: center;
+  color: #444;
+  padding: 16px 24px;
+  background: #f0f4ff;
+  border-radius: 6px;
+  width: 100%;
+}
+.methods-note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #666;
+  background: #f8f8f0;
+  border-left: 3px solid #b0b060;
+  padding: 8px 16px;
+  margin-bottom: 12px;
+  width: 100%;
+  border-radius: 0 4px 4px 0;
+}
+.methods-text {
+  flex: 1;
+  width: 100%;
+  text-align: left;
+  font-size: 18px;
+  line-height: 1.8;
+  padding: 8px 16px;
+}
+.methods-text h3 {
+  font-size: 22px;
+  color: #1a1a2e;
+  margin: 16px 0 8px;
+}
+.methods-text ul {
+  margin: 0 0 8px 24px;
+}
+.methods-text li {
+  margin-bottom: 4px;
+}
+.feature-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+  margin: 8px 0;
+}
+.feature-table th, .feature-table td {
+  border: 1px solid #ccc;
+  padding: 6px 10px;
+  text-align: left;
+}
+.feature-table thead th {
+  background: #e8edf5;
+  font-weight: 700;
+  text-align: center;
+}
+.feature-table tbody tr:nth-child(even) {
+  background: #f9f9f9;
+}
+.slide-content {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  margin-bottom: 24px;
+  overflow-y: auto;
+}
+.nav {
+  text-align: center;
+  font-size: 14px;
+  color: #888;
+  margin: 8px 0 32px;
+}
+.nav-link {
+  color: #2166ac;
+  text-decoration: none;
+  font-weight: 500;
+}
+.nav-link:hover {
+  text-decoration: underline;
+}
+.slide-images img {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.slide-images img:hover {
+  opacity: 0.85;
+}
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.8);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  cursor: zoom-out;
+}
+.modal-overlay.active {
+  display: flex;
+}
+.modal-overlay img {
+  max-width: 95vw;
+  max-height: 95vh;
+  border-radius: 8px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.5);
+}
+  </style>
+</head>
+<body>
+
+    <div class="slide" id="slide-1">
+      <div class="slide-number">Slide 1 / 9</div>
+      <div class="slide-title">データと手法</div>
+      <div class="slide-content">
+        <div class="methods-text"><h3>データ</h3><ul><li><b>コーパス:</b> CEJC（日本語日常会話コーパス）home2サブセット</li><li><b>品質フィルタ:</b> HQ1（高品質フィルタ適用済み）</li><li><b>サンプルサイズ:</b> N = 120（conversation × speaker）</li><li><b>特徴量:</b> 19説明変数（Classical 10 + Novel 9）</li></ul><h3>手法</h3><ul><li><b>回帰モデル:</b> Ridge回帰（α = 100）</li><li><b>交差検証:</b> 5-fold subject-wise CV</li><li><b>統計検定:</b> Permutation test（5,000回、seed = 42）</li><li><b>安定性評価:</b> Bootstrap係数安定性分析</li><li><b>教師ラベル:</b> 4 LLM教師のitem-level平均（アンサンブル）</li></ul></div>
+      </div>
+      <div class="slide-conclusion">N=120の自然会話データに対し、Ridge回帰＋置換検定で特徴量とBig5の関連を頑健に評価する設計である。</div>
+    </div>
+    <div class="nav">1 / 9 &nbsp;|&nbsp; <a href="#slide-2" class="nav-link">next →</a></div>
+
+    <div class="slide" id="slide-2">
+      <div class="slide-number">Slide 2 / 9</div>
+      <div class="slide-title">特徴量の分類</div>
+      <div class="slide-content">
+        <table class="feature-table"><thead><tr><th>#</th><th colspan="2">Classical（既存研究ベース: PG + FILL = 9個）</th><th colspan="2">Novel（新規提案: IX + RESP = 9個）</th></tr><tr><th></th><th>特徴量名</th><th>概要</th><th>特徴量名</th><th>概要</th></tr></thead><tbody><tr><td>1</td><td>PG_speech_ratio</td><td>Speech ratio</td><td>IX_oirmarker_rate</td><td>OIR marker rate</td></tr><tr><td>2</td><td>PG_pause_mean</td><td>Mean pause duration</td><td>IX_oirmarker_after_question_rate</td><td>Post-question OIR rate</td></tr><tr><td>3</td><td>PG_pause_p50</td><td>Median pause</td><td>IX_yesno_rate</td><td>Yes/No response rate</td></tr><tr><td>4</td><td>PG_pause_p90</td><td>90th percentile pause</td><td>IX_yesno_after_question_rate</td><td>Post-question Yes/No rate</td></tr><tr><td>5</td><td>PG_resp_gap_mean</td><td>Mean response gap</td><td>IX_lex_overlap_mean</td><td>Lexical overlap</td></tr><tr><td>6</td><td>PG_resp_gap_p50</td><td>Median response gap</td><td>RESP_NE_AIZUCHI_RATE</td><td>Post-NE aizuchi rate</td></tr><tr><td>7</td><td>PG_resp_gap_p90</td><td>90th percentile response gap</td><td>RESP_NE_ENTROPY</td><td>Post-NE response entropy</td></tr><tr><td>8</td><td>FILL_has_any</td><td>Filler utterance rate</td><td>RESP_YO_ENTROPY</td><td>Post-YO response entropy</td></tr><tr><td>9</td><td>FILL_rate_per_100chars</td><td>Filler rate per 100 chars</td><td>PG_pause_variability</td><td>Pause duration CV</td></tr><tr><td>10</td><td>PG_overlap_rate</td><td>Overlap rate</td><td></td><td></td></tr></tbody></table>
+      </div>
+      <div class="slide-conclusion">既存研究ベースのClassical 10特徴量と、会話分析・相互行為論に基づくNovel 9特徴量の2群で構成される。</div>
+    </div>
+    <div class="nav"><a href="#slide-1" class="nav-link">← prev</a> &nbsp;|&nbsp; 2 / 9 &nbsp;|&nbsp; <a href="#slide-3" class="nav-link">next →</a></div>
+
+    <div class="slide" id="slide-3">
+      <div class="slide-number">Slide 3 / 9</div>
+      <div class="slide-title">提案特徴量の分布</div>
+      <div class="methods-note">📐 CEJC home2 HQ1（N=120）から抽出した19特徴量（Classical 10 + Novel 9）のバイオリンプロット。</div>
+      <div class="slide-images">
+        <img src="fig_feature_distribution.png" alt="fig_feature_distribution.png">
+      </div>
+      <div class="slide-conclusion">19特徴量は適度なばらつきを持ち、個人差を捉える指標として有用である。</div>
+    </div>
+    <div class="nav"><a href="#slide-2" class="nav-link">← prev</a> &nbsp;|&nbsp; 3 / 9 &nbsp;|&nbsp; <a href="#slide-4" class="nav-link">next →</a></div>
+
+    <div class="slide" id="slide-4">
+      <div class="slide-number">Slide 4 / 9</div>
+      <div class="slide-title">カテゴリ内/間相関</div>
+      <div class="methods-note">📐 18特徴量間のPearson相関行列。カテゴリ順: PG→FILL→IX→RESP。</div>
+      <div class="slide-images">
+        <img src="fig_corr_heatmap_block.png" alt="fig_corr_heatmap_block.png">
+      </div>
+      <div class="slide-conclusion">同一カテゴリ内で高相関を示す一方、カテゴリ間は独立性が高い。</div>
+    </div>
+    <div class="nav"><a href="#slide-3" class="nav-link">← prev</a> &nbsp;|&nbsp; 4 / 9 &nbsp;|&nbsp; <a href="#slide-5" class="nav-link">next →</a></div>
+
+    <div class="slide" id="slide-5">
+      <div class="slide-number">Slide 5 / 9</div>
+      <div class="slide-title">コーパス基本情報との関連</div>
+      <div class="methods-note">📐 性別: Mann-Whitney U検定（M=54, F=66）。年齢: Pearson r / Spearman ρ。</div>
+      <div class="slide-images multi">
+        <img src="fig_metadata_gender.png" alt="fig_metadata_gender.png">
+        <img src="fig_metadata_age.png" alt="fig_metadata_age.png">
+      </div>
+      <div class="slide-conclusion">性別・年齢と一部特徴量に有意な関連が認められた。</div>
+    </div>
+    <div class="nav"><a href="#slide-4" class="nav-link">← prev</a> &nbsp;|&nbsp; 5 / 9 &nbsp;|&nbsp; <a href="#slide-6" class="nav-link">next →</a></div>
+
+    <div class="slide" id="slide-6">
+      <div class="slide-number">Slide 6 / 9</div>
+      <div class="slide-title">アンサンブルBig5 Permutation</div>
+      <div class="methods-note">📐 4教師のIPIP-NEO-120 item-level平均 → Ridge（α=100）+ 5-fold CV + Permutation test（5,000回）。</div>
+      <div class="slide-images">
+        <img src="fig_ensemble_permutation.png" alt="fig_ensemble_permutation.png">
+      </div>
+      <div class="slide-conclusion">4教師item-level平均によるアンサンブルBig5で、O, C, A, Nの4次元が有意（Eのみ非有意）。</div>
+    </div>
+    <div class="nav"><a href="#slide-5" class="nav-link">← prev</a> &nbsp;|&nbsp; 6 / 9 &nbsp;|&nbsp; <a href="#slide-7" class="nav-link">next →</a></div>
+
+    <div class="slide" id="slide-7">
+      <div class="slide-number">Slide 7 / 9</div>
+      <div class="slide-title">3段階Ridge回帰比較</div>
+      <div class="methods-note">📐 Stage 1: 人口統計のみ（2変数）→ Stage 2: +Classical（11変数）→ Stage 3: +Novel（20変数）。Ridge（α=100）+ 5-fold CV + Permutation test（5,000回）。</div>
+      <div class="slide-images">
+        <img src="fig_three_stage_comparison.png" alt="fig_three_stage_comparison.png">
+      </div>
+      <div class="slide-conclusion">人口統計→Classical→Novelの段階的追加により予測精度が向上し、各特徴量群の追加効果（Δr）を明示する。</div>
+    </div>
+    <div class="nav"><a href="#slide-6" class="nav-link">← prev</a> &nbsp;|&nbsp; 7 / 9 &nbsp;|&nbsp; <a href="#slide-8" class="nav-link">next →</a></div>
+
+    <div class="slide" id="slide-8">
+      <div class="slide-number">Slide 8 / 9</div>
+      <div class="slide-title">Bootstrap分散分析</div>
+      <div class="methods-note">📐 Bootstrap 500回リサンプリング（N=120復元抽出）。各特徴量の回帰係数の平均・SD・95%CIを算出。</div>
+      <div class="slide-images">
+        <img src="fig_bootstrap_variance.png" alt="fig_bootstrap_variance.png">
+      </div>
+      <div class="slide-conclusion">95%CIがゼロを跨がない特徴量を「影響が強い特徴量」として同定し、SD/CIベースで係数の安定性を評価する。</div>
+    </div>
+    <div class="nav"><a href="#slide-7" class="nav-link">← prev</a> &nbsp;|&nbsp; 8 / 9 &nbsp;|&nbsp; <a href="#slide-9" class="nav-link">next →</a></div>
+
+    <div class="slide" id="slide-9">
+      <div class="slide-number">Slide 9 / 9</div>
+      <div class="slide-title">ベースライン検証（3条件比較）</div>
+      <div class="methods-note">📐 条件1: テキスト全文（既存結果）。条件2: 4統計量のみ（発話数・平均発話長・会話長・フィラー数）。条件3: 別話者テキスト（derangement, seed=42）。各条件で4教師アンサンブル → Ridge + Permutation test（5,000回）。</div>
+      <div class="slide-content">
+        <div class="methods-text"><h3>3条件比較: r<sub>obs</sub>（Holm補正後）</h3><table class="feature-table"><thead><tr><th>Trait</th><th>条件1<br/>テキスト</th><th>条件2<br/>要約のみ</th><th>条件3<br/>ランダム</th></tr></thead><tbody><tr><td>O</td><td><b>0.410</b> *</td><td><b>0.528</b> *</td><td>0.161</td></tr><tr><td>C</td><td><b>0.432</b> *</td><td><b>0.640</b> *</td><td>−0.080</td></tr><tr><td>E</td><td>0.234</td><td><b>0.302</b> *</td><td>−0.072</td></tr><tr><td>A</td><td><b>0.449</b> *</td><td><b>0.374</b> *</td><td>0.071</td></tr><tr><td>N</td><td><b>0.317</b> *</td><td><b>0.711</b> *</td><td>−0.280</td></tr></tbody></table><h3>Cronbach's α（条件2 vs 条件1）</h3><table class="feature-table"><thead><tr><th>Trait</th><th>条件1 α</th><th>条件2 α<br/>（4教師平均）</th><th>判定</th></tr></thead><tbody><tr><td>O</td><td>≥ 0.78</td><td>0.063</td><td>崩壊</td></tr><tr><td>C</td><td>≥ 0.78</td><td>0.176</td><td>崩壊</td></tr><tr><td>E</td><td>≥ 0.78</td><td>0.041</td><td>崩壊</td></tr><tr><td>A</td><td>≥ 0.78</td><td>0.194</td><td>崩壊</td></tr><tr><td>N</td><td>≥ 0.78</td><td>0.298</td><td>崩壊</td></tr></tbody></table><h3>解釈</h3><ul><li>条件3の崩壊 → LLMはテキスト内容を読んで性格推定している</li><li>条件2のα崩壊 → 統計量だけでは一貫した性格像を構成できない</li><li>条件2のr_obs高値 → 19特徴量の一部（PG系・FILL系）が表層統計量と相関するため交絡経路で相関が生じる</li><li>→ 特徴量によるハーネス（検証レイヤー）の必要性を裏付ける</li></ul></div>
+      </div>
+      <div class="slide-conclusion">条件3（ランダム）で予測力が消失 → LLMはテキスト内容を利用している。条件2（要約のみ）でもr_obsが高いが、Cronbach's αは崩壊（平均0.04〜0.30） → 一貫した性格像は構成できていない。</div>
+    </div>
+    <div class="nav"><a href="#slide-8" class="nav-link">← prev</a> &nbsp;|&nbsp; 9 / 9</div>
+
+<div class="modal-overlay" id="imgModal">
+  <img id="modalImg" src="" alt="拡大表示">
+</div>
+
+<script>
+// 画像クリックでモーダル拡大
+document.querySelectorAll('.slide-images img').forEach(img => {
+  img.addEventListener('click', () => {
+    const modal = document.getElementById('imgModal');
+    document.getElementById('modalImg').src = img.src;
+    modal.classList.add('active');
+  });
+});
+document.getElementById('imgModal').addEventListener('click', () => {
+  document.getElementById('imgModal').classList.remove('active');
+});
+// Escキーでモーダルを閉じる
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('imgModal').classList.remove('active');
+});
+// 左右キーでスライド移動
+document.addEventListener('keydown', e => {
+  if (document.getElementById('imgModal').classList.contains('active')) return;
+  const slides = document.querySelectorAll('.slide');
+  let current = 0;
+  slides.forEach((s, i) => {
+    const rect = s.getBoundingClientRect();
+    if (rect.top < window.innerHeight / 2 && rect.bottom > 0) current = i;
+  });
+  if (e.key === 'ArrowRight' && current < slides.length - 1) {
+    slides[current + 1].scrollIntoView({ behavior: 'smooth' });
+  } else if (e.key === 'ArrowLeft' && current > 0) {
+    slides[current - 1].scrollIntoView({ behavior: 'smooth' });
+  }
+});
+</script>
+
+</body>
+</html>

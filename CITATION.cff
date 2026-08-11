@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this software or its feature definitions, please cite it as below."
+title: "interactional-features-ja: quantifying interactional features of Japanese everyday conversation"
+abstract: >-
+  Reproducible pipeline for measuring 19 interactional features (speech timing,
+  fillers, sequence organisation, response types) from Japanese everyday
+  conversation, together with the validation analyses reported in the
+  accompanying manuscript: Ridge regression with subject-wise GroupKFold,
+  permutation tests, bootstrap coefficient stability, sensitivity analyses, and
+  baseline conditions that test whether the language-model scores depend on the
+  transcript content.
+type: software
+license: MIT
+repository-code: "https://github.com/leadlea/interactional-features-ja"
+authors:
+  - family-names: "Fukuhara"
+    given-names: "Gen"
+    affiliation: "Lead lea LLC"
+    email: "genfukuhara@leadlea.com"
+  - family-names: "Soda"
+    given-names: "Takushi"
+    affiliation: "National Center of Neurology and Psychiatry (NCNP), Japan"
+  - family-names: "Yamashita"
+    given-names: "Yuichi"
+    affiliation: "National Center of Neurology and Psychiatry (NCNP), Japan"
+keywords:
+  - conversation analysis
+  - interactional features
+  - Japanese
+  - CEJC
+  - Big Five
+  - large language models
+  - reproducible research
