@@ -1,0 +1,31 @@
+{
+  "upload_type": "software",
+  "title": "interactional-features-ja: quantifying interactional features of Japanese everyday conversation",
+  "description": "<p>Reproducible pipeline for measuring 19 interactional features (speech timing, fillers, sequence organisation, response types) from Japanese everyday conversation, together with the validation analyses reported in the accompanying manuscript: Ridge regression with subject-wise GroupKFold, permutation tests, bootstrap coefficient stability, sensitivity analyses, confound control, and baseline conditions that test whether the language-model scores depend on the transcript content.</p><p>The CEJC corpus is not redistributed here. The identity of the text shown to the models is pinned by a SHA-256 digest recorded in the repository. See docs/data-availability.md.</p>",
+  "creators": [
+    {
+      "name": "Fukuhara, Gen",
+      "affiliation": "Lead lea LLC"
+    },
+    {
+      "name": "Soda, Takushi",
+      "affiliation": "National Center of Neurology and Psychiatry (NCNP), Japan"
+    },
+    {
+      "name": "Yamashita, Yuichi",
+      "affiliation": "National Center of Neurology and Psychiatry (NCNP), Japan"
+    }
+  ],
+  "license": "MIT",
+  "access_right": "open",
+  "language": "eng",
+  "keywords": [
+    "conversation analysis",
+    "interactional features",
+    "Japanese",
+    "CEJC",
+    "Big Five",
+    "large language models",
+    "reproducible research"
+  ]
+}
