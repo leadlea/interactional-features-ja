@@ -5,10 +5,15 @@ abstract: >-
   Reproducible pipeline for measuring 19 interactional features (speech timing,
   fillers, sequence organisation, response types) from Japanese everyday
   conversation, together with the validation analyses reported in the
-  accompanying manuscript: Ridge regression with subject-wise GroupKFold,
-  permutation tests, bootstrap coefficient stability, sensitivity analyses, and
-  baseline conditions that test whether the language-model scores depend on the
-  transcript content.
+  accompanying manuscript. All five trait dimensions are analysed at equal
+  granularity: Ridge regression under a subject-wise GroupKFold split,
+  permutation tests with Holm correction, coefficient-level permutation tests
+  combined with bootstrap stability, control for speaker sex and age, sensitivity
+  analyses over preprocessing and cross-validation choices, an estimate of the
+  design's detectable effect size, and baseline conditions that test whether the
+  language-model scores depend on the transcript content.
+version: 1.1.0
+date-released: "2026-09-12"
 type: software
 license: MIT
 repository-code: "https://github.com/leadlea/interactional-features-ja"
@@ -32,3 +37,5 @@ keywords:
   - Big Five
   - large language models
   - reproducible research
+  - permutation test
+  - subject-wise cross-validation
