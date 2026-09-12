@@ -47,9 +47,18 @@ predictors are speaker-level habits. Grouping on `cejc_person_id` prevents that.
 label (`IC01`, `IC02`, ...), so the same string refers to different people in
 different conversations. Person identity comes from the speaker metadata table.
 
-An earlier version of the analysis used `KFold`. `make groupkfold-compare` runs
-both across all trait x model combinations and writes the comparison, so the
-size of the difference is on the record rather than asserted.
+Every reported result uses this split, including the headline permutation test.
+That was not always true: an earlier version computed the headline test with a
+plain `KFold` while the manuscript described GroupKFold, and the staged model
+comparison was moved to GroupKFold first. `scripts/analysis/ensemble_permutation_groupkfold.py`
+brought the headline test in line and writes both designs side by side into one
+TSV, so the discrepancy is on the record rather than silently corrected.
+`make groupkfold-compare` does the same across all trait x model combinations,
+and the appendix reports the gap.
+
+The superseded KFold path (`scripts/analysis/ensemble_permutation.py`) is kept and
+still runnable, because the appendix quantifies the difference and that requires
+the KFold numbers to stay reproducible.
 
 ## Permutation test
 
@@ -101,47 +110,69 @@ Two independent procedures, reported together rather than separately:
    sign and stay away from zero across resamples of the data?
 
 They answer different questions and can disagree. A feature is treated as a
-driver only when both agree; the intersection is what the manuscript reports.
-Features that pass one test but not the other are reported as possible
-contributors and not used to support conclusions.
+**concordant feature** only when both agree: permutation p < 0.05 *and* a
+bootstrap 95% interval excluding zero. Only concordant features support
+conclusions. A feature that passes one procedure but not the other is shown in
+the table with a distinct mark and described as a possible contributor.
 
-## Incremental validity
+Both procedures are run for all five dimensions
+(`scripts/analysis/run_coef_bootstrap_all5.sh`), at the same granularity, so that
+no dimension is described in more detail than the others. Earlier drafts reported
+this level only for C. The five-dimension result files could not be recycled from
+those earlier runs: they were computed under a superseded 18-feature
+specification, so both procedures are rerun uniformly on the final 19 features.
+
+## Confound control
+
+Sex and age are added as predictors and the analysis is rerun with the same
+subject-wise split (`scripts/analysis/confound_analysis_groupkfold.py`). The
+question is whether the feature-outcome association survives, not whether the
+confounded model predicts better.
+
+This is the primary answer to "could demographics explain this?", and it is
+reported for all five dimensions on the model-ensemble scores
+(`make confound-all5`). The per-model breakdown is an appendix table
+(`make confound`). Adding variables to the feature set, rather than starting from
+demographics and adding features, keeps the feature set as the reference point,
+which is the right framing for a paper whose contribution is the feature set.
+
+## Incremental validity (exploratory)
 
 Three nested models, in a fixed order: demographics (sex, age) -> plus
 classical features -> plus novel features. The primary metric is pooled
 out-of-fold R² with RMSE alongside, and the increment from stage 2 to stage 3 is
 tested with a paired bootstrap over per-record squared errors.
 
-Correlation r is reported too, but in an appendix table, because r is not a
-proper scoring rule for an incremental-validity claim: it is invariant to
-affine rescaling of the prediction and so cannot distinguish a model that is
-better calibrated from one that merely covaries.
+Correlation r is invariant to affine rescaling of the prediction, so it cannot
+distinguish a better-calibrated model from one that merely covaries; it is not a
+proper basis for an incremental-validity claim and is not used as the metric here.
 
-The honest reading of the stage 2 -> 3 increment is in the manuscript. Where the
-increment is not significant, it is reported as not significant; the
-contribution of the novel features is supported at the coefficient level
-instead, and the figure generator deliberately does not shade bars in a way that
-would imply significance the test does not show.
-
-## Confound control
-
-Sex and age are added as predictors and the analysis is rerun with the same
-subject-wise split
-(`scripts/analysis/confound_analysis_groupkfold.py`). The question is whether the
-feature-outcome association survives, not whether the confounded model predicts
-better.
+This analysis is **exploratory and reported in an appendix**, not as a main
+result. The stage 2 -> 3 increment is not consistently significant across
+dimensions, and where it is not, it is reported as not significant. The claim
+that the newly defined features contribute is carried by the coefficient-level
+results above instead, which address it more directly: they say which features
+contribute to which dimension, rather than whether a block of nine features
+raises R² on N = 120. The figure generator deliberately does not shade bars in a
+way that would imply significance the test does not show.
 
 ## Sensitivity analyses
 
-Three arbitrary choices in the feature definitions are varied
-(`scripts/analysis/sensitivity_analysis.py`):
+Arbitrary choices are varied one at a time and the reported association is
+recomputed:
 
-| Choice | Variants | What it tests |
-|---|---|---|
-| `gap_tol` | 6 values, 0.01–1.0 s | where the boundary between a real pause and annotation noise is drawn |
-| yes/no lexicon | narrow, broad | how permissive the response-type classifier is |
-| ne/yo matching | 3 rules | how the sentence-final particle context is identified |
-| `alpha` | grid | how much the regularisation strength matters |
+| Choice | Variants | Scope | Runner | What it tests |
+|---|---|---|---|---|
+| `gap_tol` | 6 values, 0.01–1.0 s | C | `sensitivity_analysis.py` | where the boundary between a real pause and annotation noise is drawn |
+| yes/no lexicon | narrow, broad | C | `sensitivity_analysis.py` | how permissive the response-type classifier is |
+| ne/yo matching | 3 rules | C | `sensitivity_analysis.py` | how the sentence-final particle context is identified |
+| `alpha` | 10, 50, 100, 200, 500 | all five | `ensemble_permutation_groupkfold.py --alpha_sweep` | how much the regularisation strength matters |
+| CV design | KFold, GroupKFold | all five, all four models | `groupkfold_all.py` | how much the subject-wise split changes the estimate |
+
+The alpha sweep and the CV comparison run under the same subject-wise design and
+the same Holm correction as the main result, so their numbers are directly
+comparable to it. A dimension whose significance depends on alpha is described as
+marginal rather than significant.
 
 The point is not to find the best variant. It is to show whether the reported
 association depends on a threshold that was chosen without strong justification.

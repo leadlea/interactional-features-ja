@@ -11,6 +11,12 @@ Usage:
         --metadata_tsv artifacts/analysis/cejc_speaker_metadata.tsv \
         --out_tsv artifacts/analysis/results/confound_groupkfold_all.tsv \
         --n_perm 1000
+
+    # all five dimensions against the virtual Big5 scores (four-model average)
+    python scripts/analysis/confound_analysis_groupkfold.py \
+        --traits O,C,E,A,N --ensemble_only \
+        --out_tsv artifacts/analysis/results/confound_ensemble_all5.tsv \
+        --n_perm 1000
 """
 from __future__ import annotations
 
@@ -93,7 +99,17 @@ def main():
     ap.add_argument("--cv_folds", type=int, default=5)
     ap.add_argument("--n_perm", type=int, default=1000)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument(
+        "--traits", default="C",
+        help="comma-separated traits; default C only, which reproduces the "
+             "existing artifact",
+    )
+    ap.add_argument(
+        "--ensemble_only", action="store_true",
+        help="target only the ensemble datasets (item-level average of four models)",
+    )
     args = ap.parse_args()
+    traits = [t.strip().upper() for t in args.traits.split(",") if t.strip()]
 
     meta = pd.read_csv(args.metadata_tsv, sep="\t")
     files = sorted(glob.glob(f"{args.datasets_dir}/cejc_home2_hq1_XY_*only_*.parquet"))

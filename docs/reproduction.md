@@ -131,18 +131,27 @@ which is the following, in order:
 
 | Target | What it produces | Reported as |
 |---|---|---|
-| `make permutation` | permutation test on the ensemble scores, five traits, Holm-corrected | main result |
-| `make three-stage` | demographics -> +classical -> +novel, R² / RMSE, paired bootstrap | incremental validity |
-| `make coefficients` | per-feature permutation test and bootstrap CIs for C | which features carry it |
-| `make sensitivity` | `gap_tol`, yes/no lexicon, ne/yo matching variants | robustness |
-| `make confound` | sex and age as additional predictors, GroupKFold | confound control |
+| `make permutation-groupkfold` | permutation test on the ensemble scores, five traits, subject-wise split, Holm-corrected | **main result** |
+| `make coefficients-all5` | per-feature permutation test and bootstrap CIs, five dimensions | which features carry it |
+| `make confound-all5` | sex and age as additional predictors, five dimensions | confound control |
+| `make sensitivity-alpha` | alpha grid x five dimensions | robustness |
+| `make groupkfold-compare` | KFold vs GroupKFold, all trait x model combinations | appendix: CV design |
+| `make three-stage` | demographics -> +classical -> +novel, R² / RMSE, paired bootstrap | appendix: incremental validity (exploratory) |
 | `make speaker-overlap` | unique speakers and repeat appearances | justifies GroupKFold |
-| `make teacher-agreement` | between-model correlation per trait | how stable the outcome is |
+| `make teacher-agreement` | between-model correlation per trait | appendix: how stable the outcome is |
+| `make permutation` | the same headline test under a plain KFold | superseded; kept for the CV comparison |
+| `make coefficients` | per-feature tests for C only | superseded by `coefficients-all5` |
+| `make sensitivity` | `gap_tol`, yes/no lexicon, ne/yo matching variants | robustness |
+| `make confound` | sex/age control, per model | appendix breakdown |
 
-Additional analyses not in the aggregate target:
+`make groupkfold-compare` is the longest step: five traits x four models x two CV
+designs x `N_PERM` permutations. Its output file name carries the iteration count
+(`groupkfold_vs_kfold_all_nperm5000.tsv`), because the appendix tables read the
+manuscript-grade run specifically.
+
+One analysis stays outside the aggregate target:
 
 ```bash
-make groupkfold-compare      # how much the subject-wise split changes estimates
 make baseline-vs-extended    # classical-only vs classical+novel (appendix)
 ```
 
@@ -150,7 +159,7 @@ Iteration counts (`N_PERM=5000`, `N_BOOT=500`) and `SEED=42` are Makefile
 variables and match the manuscript. Lower them for a quick smoke test:
 
 ```bash
-make coefficients N_PERM=50 N_BOOT=20
+make coefficients-all5 N_PERM=50 N_BOOT=20
 ```
 
 ## Step 8 — regenerate the figures and tables
@@ -159,9 +168,17 @@ make coefficients N_PERM=50 N_BOOT=20
 make figures
 ```
 
-Overwrites `reports/paper_figs_v2/` with the 14 figures and 10 LaTeX tables used
-in the manuscript. Which figure comes from which script and which result file is
-tabulated in [figure-source-map.md](figure-source-map.md).
+Overwrites `reports/paper_figs_v2/` with the 8 figures and 13 LaTeX tables the
+manuscript uses, plus the English-caption twin of every table that has Japanese
+labels. Which figure comes from which script and which result file is tabulated in
+[figure-source-map.md](figure-source-map.md).
+
+`make figures` runs the batch generator and then four dedicated generators, in
+that order. The order is not cosmetic: the batch generator still writes a
+plain-`KFold` version of `tab_ensemble_permutation.tex` and
+`fig_predicted_vs_observed.png`, which `gen_main_result_groupkfold.py` then
+overwrites with the subject-wise versions the manuscript reports. Run the batch
+generator on its own and those two files will not match the paper.
 
 ## Step 9 — check the reported numbers
 
@@ -171,7 +188,11 @@ make verify-consistency  # cross-checks between analyses that should agree
 ```
 
 `verify` writes `artifacts/analysis/results/reproducibility_check.tsv` with one
-row per checked value and a match flag. `verify-consistency` covers two places
+row per checked value and a match flag. It covers the main-result r and
+Holm-corrected p for all five dimensions, the concordant feature set named for
+each dimension, the plain-KFold values the appendix compares against, and the
+between-model agreement. Expected values are transcribed from the manuscript and
+compared at the precision the manuscript prints. `verify-consistency` covers two places
 where the same quantity is computed differently — the three-stage Stage 3
 correlation versus the predicted-vs-observed scatter — and reports which of the
 two axes (feature set, or fold-averaged versus pooled out-of-fold aggregation)
@@ -195,7 +216,14 @@ bash scripts/baseline/run_scoring_summary.sh
 bash scripts/baseline/run_scoring_random.sh
 bash scripts/baseline/run_ensemble_conditions.sh
 make baseline-dirs baseline-compare
+make baseline-conditions  # all three conditions under the subject-wise split
 ```
+
+`make baseline-compare` is the original comparison, computed with a plain KFold.
+`make baseline-conditions` recomputes all three conditions with the same
+GroupKFold design as the main result, which is what the manuscript table reports:
+a delta r across conditions is only interpretable if condition 1 matches the
+headline number.
 
 **Feature dose-response.** Manipulate one feature at x0 / x1 / x3 in the text
 and re-score, to see whether the trait estimate moves with it.

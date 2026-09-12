@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""
-再現性検証スクリプト: 論文記載値と既存結果ファイルの一致を検証する。
+"""Check the values reported in the manuscript against the result files.
 
-出力: artifacts/analysis/results/reproducibility_check.tsv
-Usage: python scripts/analysis/verify_reproducibility.py
+Each expected value below is transcribed from the manuscript. The script reads the
+corresponding result file, compares at the precision the manuscript prints, and
+writes one row per checked value.
+
+Output: artifacts/analysis/results/reproducibility_check.tsv
+Usage:  python scripts/analysis/verify_reproducibility.py
 """
 
 from __future__ import annotations
 
 import csv
-import re
-import sys
 from pathlib import Path
 from typing import NamedTuple
 
@@ -22,8 +23,11 @@ import numpy as np
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 RESULTS_DIR = REPO_ROOT / "artifacts" / "analysis" / "results"
-BOOTSTRAP_DIR = RESULTS_DIR / "bootstrap"
 TEACHER_CORR_DIR = REPO_ROOT / "reports" / "model_agreement"
+MAIN_RESULT_TSV = (
+    RESULTS_DIR / "ensemble_perm_groupkfold" / "ensemble_summary_groupkfold.tsv"
+)
+COEF_ALL5_DIR = RESULTS_DIR / "coef_bootstrap_all5"
 OUTPUT_TSV = RESULTS_DIR / "reproducibility_check.tsv"
 
 
@@ -39,13 +43,30 @@ class CheckResult(NamedTuple):
 
 
 # ---------------------------------------------------------------------------
-# Expected values (hardcoded from paper)
+# Expected values (transcribed from the manuscript)
 # ---------------------------------------------------------------------------
-PERMUTATION_EXPECTED: list[dict] = [
-    {"trait": "C", "teacher": "sonnet", "r_obs": 0.434, "p_value": 0.0008},
-    {"trait": "C", "teacher": "qwen3-235b", "r_obs": 0.390, "p_value": 0.0010},
-    {"trait": "C", "teacher": "gpt-oss-120b", "r_obs": 0.447, "p_value": 0.0008},
-    {"trait": "C", "teacher": "deepseek-v3", "r_obs": 0.205, "p_value": 0.1130},
+
+# Main result: permutation test on the model-ensemble scores under the
+# subject-wise split, five dimensions, Holm-corrected across dimensions.
+# Read from MAIN_RESULT_TSV, columns r_groupkfold / p_groupkfold_holm.
+MAIN_RESULT_EXPECTED: list[dict] = [
+    {"trait": "O", "r_obs": 0.337, "p_holm": 0.0124},
+    {"trait": "C", "r_obs": 0.423, "p_holm": 0.0040},
+    {"trait": "E", "r_obs": 0.254, "p_holm": 0.0490},
+    {"trait": "A", "r_obs": 0.397, "p_holm": 0.0072},
+    {"trait": "N", "r_obs": 0.410, "p_holm": 0.0072},
+]
+
+# Appendix, CV-design comparison: the same quantity under a plain KFold. The
+# appendix states these in prose alongside the subject-wise values, so they have
+# to keep reproducing even though they are not the reported result.
+# Read from MAIN_RESULT_TSV, column r_kfold.
+KFOLD_EXPECTED: list[dict] = [
+    {"trait": "O", "r_kfold": 0.410},
+    {"trait": "C", "r_kfold": 0.432},
+    {"trait": "E", "r_kfold": 0.234},
+    {"trait": "A", "r_kfold": 0.449},
+    {"trait": "N", "r_kfold": 0.317},
 ]
 
 TEACHER_AGREEMENT_EXPECTED: list[dict] = [
@@ -53,35 +74,108 @@ TEACHER_AGREEMENT_EXPECTED: list[dict] = [
     {"trait": "A", "mean_r": 0.435},
 ]
 
-BOOTSTRAP_TOP3_EXPECTED: list[str] = [
-    "FILL_has_any",
-    "IX_oirmarker_after_question_rate",
-    "PG_speech_ratio",
-]
+# Concordant features per dimension: permutation p < 0.05 AND a bootstrap 95%
+# interval excluding zero. The manuscript names these individually, so the set is
+# worth checking rather than only the count. Order does not matter; the check
+# compares sorted lists. Read from COEF_ALL5_DIR.
+CONCORDANT_EXPECTED: dict[str, list[str]] = {
+    "O": [
+        "FILL_rate_per_100chars",
+        "PG_overlap_rate",
+        "PG_pause_mean",
+        "PG_pause_p90",
+        "PG_speech_ratio",
+        "RESP_NE_AIZUCHI_RATE",
+    ],
+    "C": [
+        "FILL_has_any",
+        "IX_lex_overlap_mean",
+        "IX_oirmarker_after_question_rate",
+        "IX_yesno_rate",
+        "PG_speech_ratio",
+    ],
+    "E": [
+        "PG_pause_mean",
+        "PG_pause_p50",
+        "PG_pause_p90",
+    ],
+    "A": [
+        "IX_yesno_after_question_rate",
+        "IX_yesno_rate",
+        "PG_pause_mean",
+        "PG_pause_p50",
+        "PG_pause_p90",
+        "PG_speech_ratio",
+        "RESP_NE_ENTROPY",
+    ],
+    "N": [
+        "IX_oirmarker_after_question_rate",
+        "IX_yesno_rate",
+    ],
+}
 
 
 # ---------------------------------------------------------------------------
 # Parsers
 # ---------------------------------------------------------------------------
-def parse_permutation_log(path: Path) -> dict[str, float] | None:
-    """Parse permutation.log and return {'r_obs': float, 'p_value': float}.
+def parse_main_result_tsv(path: Path) -> dict[str, dict[str, float]] | None:
+    """Read the summary TSV written by ``ensemble_permutation_groupkfold.py``.
 
-    Returns None if file not found, or raises ValueError on parse failure.
+    Returns ``{trait: {"r_obs", "p_holm", "r_kfold"}}``, where ``r_obs`` /
+    ``p_holm`` are the subject-wise (GroupKFold) values and ``r_kfold`` is the
+    plain-KFold value the same script records for comparison. Returns None if the
+    file is absent; raises ValueError if the expected columns are missing.
     """
     if not path.exists():
         return None
 
-    text = path.read_text(encoding="utf-8")
-    r_match = re.search(r"r_obs=([\d.]+)", text)
-    p_match = re.search(r"p\(\|r\|\)=([\d.]+)", text)
+    try:
+        out: dict[str, dict[str, float]] = {}
+        with open(path, encoding="utf-8") as f:
+            reader = csv.DictReader(f, delimiter="\t")
+            for row in reader:
+                out[row["trait"]] = {
+                    "r_obs": float(row["r_groupkfold"]),
+                    "p_holm": float(row["p_groupkfold_holm"]),
+                    "r_kfold": float(row["r_kfold"]),
+                }
+        if not out:
+            raise ValueError("no rows")
+        return out
+    except (KeyError, ValueError) as exc:
+        raise ValueError(f"Failed to parse main-result TSV: {path}") from exc
 
-    if r_match is None or p_match is None:
-        raise ValueError(f"Failed to parse permutation.log: {path}")
 
-    return {
-        "r_obs": float(r_match.group(1)),
-        "p_value": float(p_match.group(1)),
-    }
+def parse_concordant_features(results_dir: Path, trait: str) -> list[str] | None:
+    """Return the concordant features for one trait, sorted.
+
+    A feature is concordant when the coefficient permutation test gives p < 0.05
+    *and* the bootstrap 95% interval excludes zero. Returns None if either input
+    file is absent; raises ValueError on a malformed file.
+    """
+    perm_path = results_dir / f"permutation_coef_{trait}_ensemble.tsv"
+    boot_path = results_dir / f"bootstrap_variance_{trait}_ensemble.tsv"
+    if not perm_path.exists() or not boot_path.exists():
+        return None
+
+    try:
+        sig_perm: set[str] = set()
+        with open(perm_path, encoding="utf-8") as f:
+            for row in csv.DictReader(f, delimiter="\t"):
+                if float(row["p_value"]) < 0.05:
+                    sig_perm.add(row["feature"])
+
+        excl_zero: set[str] = set()
+        with open(boot_path, encoding="utf-8") as f:
+            for row in csv.DictReader(f, delimiter="\t"):
+                if row["ci_excludes_zero"].strip().lower() == "true":
+                    excl_zero.add(row["feature"])
+    except (KeyError, ValueError) as exc:
+        raise ValueError(
+            f"Failed to parse coefficient results for {trait}: {results_dir}"
+        ) from exc
+
+    return sorted(sig_perm & excl_zero)
 
 
 def parse_teacher_corr_tsv(path: Path) -> float | None:
@@ -116,42 +210,32 @@ def parse_teacher_corr_tsv(path: Path) -> float | None:
         raise ValueError(f"Failed to parse teacher_corr TSV: {path}") from exc
 
 
-def parse_bootstrap_top3(path: Path) -> list[str] | None:
-    """Read bootstrap_summary.tsv and return top-3 features by topk_rate
-    descending.
-
-    Returns None if file not found, or raises ValueError on parse failure.
-    """
-    if not path.exists():
-        return None
-
-    try:
-        features: list[tuple[str, float]] = []
-        with open(path, encoding="utf-8") as f:
-            reader = csv.DictReader(f, delimiter="\t")
-            for row in reader:
-                features.append((row["feature"], float(row["topk_rate"])))
-
-        features.sort(key=lambda x: x[1], reverse=True)
-        return [f[0] for f in features[:3]]
-    except (KeyError, ValueError) as exc:
-        raise ValueError(f"Failed to parse bootstrap_summary.tsv: {path}") from exc
-
-
 # ---------------------------------------------------------------------------
 # Comparison helpers
 # ---------------------------------------------------------------------------
 def compare_numeric(
     expected: float, actual: float, precision: int
 ) -> tuple[bool, str]:
-    """Compare two floats rounded to the same precision.
+    """Compare a value as printed in the manuscript against a stored value.
+
+    ``expected`` is the manuscript string parsed as a float, so it carries only
+    the digits the manuscript prints. A match is therefore anything that agrees to
+    within half a unit of the last printed place, rather than exact equality after
+    re-rounding.
+
+    Re-rounding is not sufficient here because some result files store an already
+    rounded value: a table cell printed as 0.432 can sit behind a stored 0.4315,
+    and rounding that to three places gives 0.431. The discrepancy is double
+    rounding, not disagreement. The half-unit rule still catches any difference
+    large enough to change a printed digit.
 
     Returns (match, diff_str).
     """
-    exp_rounded = round(expected, precision)
-    act_rounded = round(actual, precision)
-    match = exp_rounded == act_rounded
     diff = abs(expected - actual)
+    tolerance = 0.5 * 10 ** (-precision)
+    match = round(expected, precision) == round(actual, precision) or (
+        diff <= tolerance + 1e-12
+    )
     return match, f"{diff:.10f}"
 
 
@@ -167,59 +251,86 @@ def compare_string_list(
 # ---------------------------------------------------------------------------
 # Check functions
 # ---------------------------------------------------------------------------
-def check_permutation_results() -> list[CheckResult]:
-    """Verify permutation test results for C trait across 4 teachers."""
+def _check_summary_values(
+    expected: list[dict], fields: tuple[tuple[str, str], ...]
+) -> list[CheckResult]:
+    """Compare per-trait values in MAIN_RESULT_TSV against expected values.
+
+    ``fields`` is a tuple of ``(row_key, item_name)`` pairs: ``row_key`` selects
+    both the expected entry and the parsed value, and ``item_name`` is used to
+    build the check label.
+    """
     results: list[CheckResult] = []
 
-    for entry in PERMUTATION_EXPECTED:
-        trait = entry["trait"]
-        teacher = entry["teacher"]
-        exp_r = entry["r_obs"]
-        exp_p = entry["p_value"]
+    try:
+        parsed = parse_main_result_tsv(MAIN_RESULT_TSV)
+    except ValueError:
+        parsed, status = None, "PARSE_ERROR"
+    else:
+        status = None if parsed is not None else "FILE_NOT_FOUND"
 
-        dir_name = f"cejc_home2_hq1_{trait}only_{teacher}_controls_excluded"
-        log_path = RESULTS_DIR / dir_name / "permutation.log"
+    for entry in expected:
+        trait = entry["trait"]
+        for row_key, item_name in fields:
+            item = f"{item_name}_{trait}"
+            exp = entry[row_key]
+            if status is not None:
+                results.append(CheckResult(item, str(exp), status, False, status))
+                continue
+            row = parsed.get(trait)
+            if row is None:
+                results.append(CheckResult(
+                    item, str(exp), "TRAIT_NOT_FOUND", False, "TRAIT_NOT_FOUND"
+                ))
+                continue
+            precision = len(str(exp).split(".")[-1])
+            match, diff = compare_numeric(exp, row[row_key], precision)
+            results.append(CheckResult(
+                item, str(exp), str(round(row[row_key], precision)), match, diff
+            ))
+
+    return results
+
+
+def check_main_result() -> list[CheckResult]:
+    """Verify the main-result r and Holm-corrected p for all five dimensions."""
+    return _check_summary_values(
+        MAIN_RESULT_EXPECTED,
+        (("r_obs", "main_r_obs_groupkfold"), ("p_holm", "main_p_holm_groupkfold")),
+    )
+
+
+def check_kfold_comparison() -> list[CheckResult]:
+    """Verify the plain-KFold r the appendix reports alongside the main result."""
+    return _check_summary_values(
+        KFOLD_EXPECTED, (("r_kfold", "cv_comparison_r_kfold"),)
+    )
+
+
+def check_concordant_features() -> list[CheckResult]:
+    """Verify the concordant feature set named in the manuscript, per dimension."""
+    results: list[CheckResult] = []
+
+    for trait, expected in CONCORDANT_EXPECTED.items():
+        item = f"concordant_features_{trait}"
+        exp_str = ",".join(expected)
 
         try:
-            parsed = parse_permutation_log(log_path)
+            actual = parse_concordant_features(COEF_ALL5_DIR, trait)
         except ValueError:
-            parsed = "PARSE_ERROR"
+            results.append(CheckResult(
+                item, exp_str, "PARSE_ERROR", False, "PARSE_ERROR"
+            ))
+            continue
 
-        # r_obs check
-        item_r = f"permutation_r_obs_{trait}_{teacher}"
-        if parsed is None:
+        if actual is None:
             results.append(CheckResult(
-                item_r, str(exp_r), "FILE_NOT_FOUND", False, "FILE_NOT_FOUND"
+                item, exp_str, "FILE_NOT_FOUND", False, "FILE_NOT_FOUND"
             ))
-        elif parsed == "PARSE_ERROR":
-            results.append(CheckResult(
-                item_r, str(exp_r), "PARSE_ERROR", False, "PARSE_ERROR"
-            ))
-        else:
-            r_precision = len(str(exp_r).split(".")[-1])
-            match, diff = compare_numeric(exp_r, parsed["r_obs"], r_precision)
-            results.append(CheckResult(
-                item_r, str(exp_r), str(round(parsed["r_obs"], r_precision)),
-                match, diff
-            ))
+            continue
 
-        # p_value check
-        item_p = f"permutation_p_{trait}_{teacher}"
-        if parsed is None:
-            results.append(CheckResult(
-                item_p, str(exp_p), "FILE_NOT_FOUND", False, "FILE_NOT_FOUND"
-            ))
-        elif parsed == "PARSE_ERROR":
-            results.append(CheckResult(
-                item_p, str(exp_p), "PARSE_ERROR", False, "PARSE_ERROR"
-            ))
-        else:
-            p_precision = len(str(exp_p).split(".")[-1])
-            match, diff = compare_numeric(exp_p, parsed["p_value"], p_precision)
-            results.append(CheckResult(
-                item_p, str(exp_p), str(round(parsed["p_value"], p_precision)),
-                match, diff
-            ))
+        match, diff = compare_string_list(sorted(expected), actual)
+        results.append(CheckResult(item, exp_str, ",".join(actual), match, diff))
 
     return results
 
@@ -258,47 +369,6 @@ def check_teacher_agreement() -> list[CheckResult]:
             ))
 
     return results
-
-
-def check_bootstrap_top3() -> list[CheckResult]:
-    """Verify bootstrap top-3 features for C/sonnet."""
-    item = "bootstrap_top3_C_sonnet"
-    tsv_path = (
-        BOOTSTRAP_DIR
-        / "cejc_home2_hq1_Conly_sonnet_controls_excluded"
-        / "bootstrap_summary.tsv"
-    )
-
-    try:
-        actual_top3 = parse_bootstrap_top3(tsv_path)
-    except ValueError:
-        actual_top3 = "PARSE_ERROR"
-
-    if actual_top3 is None:
-        return [CheckResult(
-            item,
-            ",".join(BOOTSTRAP_TOP3_EXPECTED),
-            "FILE_NOT_FOUND",
-            False,
-            "FILE_NOT_FOUND",
-        )]
-    elif actual_top3 == "PARSE_ERROR":
-        return [CheckResult(
-            item,
-            ",".join(BOOTSTRAP_TOP3_EXPECTED),
-            "PARSE_ERROR",
-            False,
-            "PARSE_ERROR",
-        )]
-    else:
-        match, diff = compare_string_list(BOOTSTRAP_TOP3_EXPECTED, actual_top3)
-        return [CheckResult(
-            item,
-            ",".join(BOOTSTRAP_TOP3_EXPECTED),
-            ",".join(actual_top3),
-            match,
-            diff,
-        )]
 
 
 # ---------------------------------------------------------------------------
@@ -346,14 +416,14 @@ def print_summary(results: list[CheckResult]) -> None:
 def main() -> None:
     all_results: list[CheckResult] = []
 
-    # Task 4.1: Permutation results
-    all_results.extend(check_permutation_results())
+    # main text: five dimensions, subject-wise split
+    all_results.extend(check_main_result())
+    all_results.extend(check_concordant_features())
 
-    # Task 4.2: Teacher agreement + Bootstrap Top3
+    # appendix: CV-design comparison, between-model agreement
+    all_results.extend(check_kfold_comparison())
     all_results.extend(check_teacher_agreement())
-    all_results.extend(check_bootstrap_top3())
 
-    # Task 4.3: Write TSV output
     write_tsv(all_results, OUTPUT_TSV)
     print(f"Results written to: {OUTPUT_TSV}")
 

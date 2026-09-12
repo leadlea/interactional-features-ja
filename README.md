@@ -33,7 +33,8 @@ number against the code that produced it. It does not contain the corpus.
 4. Test whether the features predict that criterion, under a subject-wise
    split, with permutation tests, bootstrap coefficient stability, sensitivity
    analyses, confound control, and baseline conditions that check whether the
-   models are using the transcript at all.
+   models are using the transcript at all. All five trait dimensions are analysed
+   and reported at the same granularity, down to the coefficient level.
 
 The contribution is the measurement instrument and its validation procedure, not
 a personality prediction model. The trait scores are a criterion for validating
@@ -53,7 +54,9 @@ scripts/
 tests/             unit and property-based tests (no corpus needed)
 docs/              methods documentation
 reports/
-  paper_figs_v2/   generated figures and LaTeX tables as they appear in the manuscript
+  paper_figs_v2/   generated figures and LaTeX tables as they appear in the
+                   manuscript; tables with Japanese labels also have an `_en` twin
+                   written in the same run, for the English version
   model_agreement/ between-model correlation tables
 artifacts/         local working directory, not tracked (see artifacts/README.md)
 ```

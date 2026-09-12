@@ -1400,10 +1400,11 @@ def gen_metadata_gender(
             try:
                 u_stat, p_val = mannwhitneyu(m_vals, f_vals, alternative="two-sided")
                 sig_marker = " *" if p_val < 0.05 else ""
+                # Significance is shown by the asterisk only; bold is not used as an
+                # encoding (table/figure convention: asterisks throughout).
                 ax.set_title(
                     f"{feat}\nU={u_stat:.0f}, p={p_val:.4f}{sig_marker}",
                     fontsize=9,
-                    fontweight="bold" if p_val < 0.05 else "normal",
                 )
             except ValueError:
                 ax.set_title(f"{feat}\n(test N/A)", fontsize=9)
@@ -2252,13 +2253,14 @@ def gen_fig_predicted_vs_observed(
         ax.set_aspect("equal", adjustable="box")
 
         # Annotate r and p
+        # Significance is shown by the asterisk and by colour; bold is not used as an
+        # encoding (table/figure convention: asterisks throughout).
         sig_star = " *" if is_sig else ""
         ax.text(
             0.04, 0.96,
             f"r = {r_val:.3f}, p = {p_val:.4f}{sig_star}",
             transform=ax.transAxes,
             fontsize=8.5, va="top", ha="left",
-            fontweight="bold" if is_sig else "normal",
             color=marker_color,
             bbox=dict(boxstyle="round,pad=0.25", facecolor="white",
                       edgecolor="#dddddd", alpha=0.85),
