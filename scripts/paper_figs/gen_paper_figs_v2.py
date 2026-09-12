@@ -3340,9 +3340,9 @@ def main(argv: list[str] | None = None) -> None:
         # gen_fig_baseline_vs_extended, gen_tab_baseline_vs_extended,
         # gen_tab_bootstrap_variance and gen_tab_permutation_coef (the last two
         # superseded by the five-dimension tables from gen_coef_all5.py).
-        # fig_ensemble_permutation.png and fig_bootstrap_variance.png are kept
-        # below: the manuscript does not cite them, but gen_kamishibai_slides.py
-        # embeds them.
+        # gen_fig_ensemble_permutation and gen_fig_bootstrap_variance are also
+        # skipped: they were kept only while the slide deck embedded them, and the
+        # deck now uses manuscript figures only.
         # Files owned by a dedicated generator are also absent, so that each has
         # exactly one writer and no ordering dependency:
         #   tab_ensemble_permutation.tex, fig_predicted_vs_observed.png,
@@ -3359,10 +3359,6 @@ def main(argv: list[str] | None = None) -> None:
         ("fig_feature_distribution.png", gen_feature_distribution, [features_df, out_dir]),
         ("tab_descriptive_stats_full.tex", gen_descriptive_stats_full_table, [features_df, out_dir]),
         ("fig_corr_heatmap_block.png + tab_corr_matrix.tex", gen_corr_heatmap_block, [features_df, out_dir]),
-        # --- Slide-deck inputs: not cited by the manuscript, embedded by
-        #     gen_kamishibai_slides.py ---
-        ("fig_ensemble_permutation.png", gen_fig_ensemble_permutation, [results_dir, out_dir]),
-        ("fig_bootstrap_variance.png", gen_fig_bootstrap_variance, [results_dir, out_dir]),
         # --- Between-model agreement ---
         ("fig_teacher_corr_matrix.png", gen_fig_teacher_corr_matrix, [results_dir, out_dir]),
         # The three-stage figure and table use the R²/RMSE metric and have their

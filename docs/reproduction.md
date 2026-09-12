@@ -174,8 +174,14 @@ labels. Which figure comes from which script and which result file is tabulated 
 [figure-source-map.md](figure-source-map.md).
 
 Each file has exactly one generator, so the order does not matter and no step
-overwrites another's output. Four files in that directory are not cited by the
-manuscript; [figure-source-map.md](figure-source-map.md) says which and why.
+overwrites another's output.
+
+The nine-slide Japanese explainer deck is separate, because its numbers are
+transcribed by hand rather than read from the result files:
+
+```bash
+make slides       # reports/paper_figs_v2/kamishibai_slides.html
+```
 
 ## Step 9 — check the reported numbers
 

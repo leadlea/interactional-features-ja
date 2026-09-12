@@ -281,8 +281,9 @@ figures:
 	$(PYTHON) scripts/paper_figs/gen_paper_figs_v2.py \
 	  --metadata_tsv $(META_TSV) \
 	  --out_dir $(FIG_DIR)
-	$(PYTHON) scripts/paper_figs/gen_fig_three_stage_r2.py \
-	  --teacher $(TEACHER) --metrics_dir $(THREE_STAGE_DIR) --out_dir $(FIG_DIR)
+	@# Incremental-validity table (appendix). gen_fig_three_stage_r2.py writes the
+	@# matching figure, which the manuscript does not use, so it is not run here.
+	@# Run it directly if you want the figure.
 	$(PYTHON) scripts/paper_figs/gen_tab_three_stage_r2.py \
 	  --teacher $(TEACHER) --metrics_dir $(THREE_STAGE_DIR) --out_dir $(FIG_DIR)
 	@# Main-result table and scatter, and the confound table, under GroupKFold.

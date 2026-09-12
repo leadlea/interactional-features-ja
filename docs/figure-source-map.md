@@ -97,41 +97,55 @@ make figures
 Every file in `reports/paper_figs_v2/` has exactly one writer, so the generators
 can be run in any order and none overwrites another's output.
 
-Three generators sit outside the batch on purpose. `gen_fig_three_stage_r2.py`
-and `gen_tab_three_stage_r2.py` produce the R²/RMSE version of the
-incremental-validity figure and table, so that rerunning the batch cannot revert
-them to the correlation-based version; the old functions inside
-`gen_paper_figs_v2.py` (`gen_fig_three_stage_comparison`, `gen_tab_three_stage`)
-are never called. `gen_kamishibai_slides.py` writes the explainer deck and is run
-by `make slides`.
+`gen_tab_three_stage_r2.py` sits outside the batch on purpose: it produces the
+R²/RMSE version of the incremental-validity table, and keeping it separate means
+rerunning the batch cannot revert the table to the correlation-based version. The
+old functions inside `gen_paper_figs_v2.py` (`gen_fig_three_stage_comparison`,
+`gen_tab_three_stage`) are never called.
 
 `gen_paper_figs_v2.py` accepts `--bootstrap_dir` but no longer reads it, because
 the only generator that used it is no longer in the batch. The option is kept so
 existing invocations do not break.
 
+Two scripts are not part of `make figures`:
+
+```bash
+make slides                                             # the explainer deck
+python scripts/paper_figs/gen_fig_three_stage_r2.py \
+  --teacher ensemble                                    # incremental-validity figure
+```
+
+The incremental-validity figure is not in the manuscript — the appendix carries
+only the table — so `make figures` does not produce it.
+
+## The explainer deck
+
+`make slides` writes `reports/paper_figs_v2/kamishibai_slides.html`, a
+self-contained nine-slide walkthrough in Japanese: two method slides, five slides
+covering the main-text results, and two appendix slides. It embeds only figures
+the manuscript uses and its numbers are transcribed from the generated tables, so
+it has the same failure mode as the hand-entered manuscript values below: when a
+result changes, `gen_kamishibai_slides.py` has to be updated by hand. The
+docstring at the top of that script records which table each slide's numbers come
+from.
+
 ## Not cited by the manuscript
 
-Four generated files remain in `reports/paper_figs_v2/` without a manuscript
-reference, each because something else still needs it:
-
-| File | Why it is here |
-|---|---|
-| `fig_ensemble_permutation.png` | embedded by `gen_kamishibai_slides.py` |
-| `fig_bootstrap_variance.png` | embedded by `gen_kamishibai_slides.py` |
-| `fig_three_stage_comparison.png` | written by `gen_fig_three_stage_r2.py`, embedded by the slide deck |
-| `tab_three_stage_r.tex` | written by `gen_tab_three_stage_r2.py` alongside `tab_three_stage.tex` |
-
-The slide deck still presents the incremental-validity analysis as a headline,
-which the manuscript no longer does. Treat it as an older explainer, not as a
-summary of the current paper.
+One generated file remains without a manuscript reference:
+`tab_three_stage_r.tex`, the correlation version of the incremental-validity
+table, which `gen_tab_three_stage_r2.py` writes alongside the cited
+`tab_three_stage.tex`.
 
 Outputs that nothing writes and nothing consumes were removed when the analysis
 moved to five dimensions: the C-only coefficient tables and figures
 (`tab_permutation_coef.tex`, `tab_bootstrap_variance.tex`,
-`fig_permutation_C_bar.png`, `fig_bootstrap_C_radar.png`), the classical-vs-extended
-appendix pair (`tab_baseline_vs_extended.tex`, `fig_baseline_vs_extended.png`),
-the short descriptive table superseded by the `_full` version
+`fig_bootstrap_variance.png`, `fig_permutation_C_bar.png`,
+`fig_bootstrap_C_radar.png`), the classical-vs-extended appendix pair
+(`tab_baseline_vs_extended.tex`, `fig_baseline_vs_extended.png`), the short
+descriptive table superseded by the `_full` version
 (`tab_descriptive_stats.tex`), the sample-selection flowchart
-(`fig_consort_flowchart.png`), and two `_legacy` three-stage files. Their
+(`fig_consort_flowchart.png`), the bar version of the permutation result
+(`fig_ensemble_permutation.png`), the incremental-validity figure
+(`fig_three_stage_comparison.png`), and two `_legacy` three-stage files. Their
 generator functions are still in `gen_paper_figs_v2.py`, listed in the comment at
 the top of its batch list, but are not called.
