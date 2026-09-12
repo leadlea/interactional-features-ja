@@ -9,10 +9,11 @@ what preceded it (`IX`), and what follows the sentence-final particles ne / yo
 (`RESP`). All of them are computed from transcripts with timestamps, with no
 manual coding step.
 
-This repository is the code and provenance record for a manuscript submitted to
-*Behavior Research Methods*. It contains the full pipeline, the tests, the
+This repository is the code and provenance record for a manuscript being prepared
+for *Behavior Research Methods*. It contains the full pipeline, the tests, the
 generated figures and tables, and the documentation needed to check any reported
-number against the code that produced it. It does not contain the corpus.
+number against the code that produced it. It does not contain the corpus or the
+manuscript.
 
 - Pipeline and commands: [docs/reproduction.md](docs/reproduction.md)
 - Feature definitions: [docs/feature-dictionary.md](docs/feature-dictionary.md)
@@ -54,9 +55,10 @@ scripts/
 tests/             unit and property-based tests (no corpus needed)
 docs/              methods documentation
 reports/
-  paper_figs_v2/   generated figures and LaTeX tables as they appear in the
-                   manuscript; tables with Japanese labels also have an `_en` twin
-                   written in the same run, for the English version
+  paper_figs_v2/   the manuscript's 8 figures and 13 LaTeX tables; tables with
+                   Japanese labels also have an `_en` twin written in the same run,
+                   for the English version. Also holds kamishibai_slides.html, a
+                   nine-slide walkthrough of the study written in Japanese
   model_agreement/ between-model correlation tables
 artifacts/         local working directory, not tracked (see artifacts/README.md)
 ```
@@ -87,7 +89,10 @@ depend on the estimator implementation.
 - Seeds are passed explicitly (`SEED=42`); iteration counts (`N_PERM=5000`,
   `N_BOOT=500`) are Makefile variables and match the manuscript.
 - `make verify` compares the values reported in the manuscript against the result
-  files and writes a per-value match report.
+  files and writes a per-value match report: the main-result r and Holm-corrected
+  p for all five dimensions, the concordant feature set per dimension, the
+  plain-KFold values the appendix compares against, and the between-model
+  agreement.
 - Model endpoints are not version-frozen by the provider, so re-scoring may not
   return identical values. Everything downstream of fixed inputs does.
 
