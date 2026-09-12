@@ -285,10 +285,9 @@ figures:
 	  --teacher $(TEACHER) --metrics_dir $(THREE_STAGE_DIR) --out_dir $(FIG_DIR)
 	$(PYTHON) scripts/paper_figs/gen_tab_three_stage_r2.py \
 	  --teacher $(TEACHER) --metrics_dir $(THREE_STAGE_DIR) --out_dir $(FIG_DIR)
-	@# main-result table and scatter, and the confound table, under GroupKFold.
-	@# Run after gen_paper_figs_v2.py: these overwrite the KFold versions of
-	@# tab_ensemble_permutation.tex / fig_predicted_vs_observed.png with the
-	@# subject-wise ones the manuscript reports.
+	@# Main-result table and scatter, and the confound table, under GroupKFold.
+	@# Every file has one writer, so these can run in any order relative to the
+	@# batch generator above.
 	$(PYTHON) scripts/paper_figs/gen_main_result_groupkfold.py \
 	  --summary_tsv $(PERM_GK_DIR)/ensemble_summary_groupkfold.tsv \
 	  --confound_tsv $(CONFOUND_ALL5_TSV) \

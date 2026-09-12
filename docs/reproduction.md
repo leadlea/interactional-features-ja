@@ -173,12 +173,9 @@ manuscript uses, plus the English-caption twin of every table that has Japanese
 labels. Which figure comes from which script and which result file is tabulated in
 [figure-source-map.md](figure-source-map.md).
 
-`make figures` runs the batch generator and then four dedicated generators, in
-that order. The order is not cosmetic: the batch generator still writes a
-plain-`KFold` version of `tab_ensemble_permutation.tex` and
-`fig_predicted_vs_observed.png`, which `gen_main_result_groupkfold.py` then
-overwrites with the subject-wise versions the manuscript reports. Run the batch
-generator on its own and those two files will not match the paper.
+Each file has exactly one generator, so the order does not matter and no step
+overwrites another's output. Four files in that directory are not cited by the
+manuscript; [figure-source-map.md](figure-source-map.md) says which and why.
 
 ## Step 9 — check the reported numbers
 

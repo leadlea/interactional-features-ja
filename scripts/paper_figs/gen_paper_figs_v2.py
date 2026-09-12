@@ -3286,9 +3286,12 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     results_dir = Path(args.results_dir)
-    bootstrap_dir = Path(args.bootstrap_dir)
     features_parquet = Path(args.features_parquet)
     out_dir = Path(args.out_dir)
+    # --bootstrap_dir is accepted but no longer read: the only generator that used
+    # it (gen_fig_bootstrap_C_radar) is no longer part of the batch. The option is
+    # kept so existing invocations do not break, and is not validated below,
+    # because requiring a directory nothing reads would fail runs needlessly.
 
     # --- Load metadata (optional — warn & skip if absent) ---
     metadata_df: pd.DataFrame | None = None
@@ -3307,11 +3310,6 @@ def main(argv: list[str] | None = None) -> None:
         errors.append(
             f"Results directory not found: {results_dir}\n"
             f"  Expected: directory containing cejc_home2_hq1_{{trait}}only_{{teacher}}_controls_excluded/permutation.log"
-        )
-    if not bootstrap_dir.is_dir():
-        errors.append(
-            f"Bootstrap directory not found: {bootstrap_dir}\n"
-            f"  Expected: directory containing cejc_home2_hq1_{{trait}}only_{{teacher}}_controls_excluded/bootstrap_summary.tsv"
         )
     if not features_parquet.exists():
         errors.append(
@@ -3334,11 +3332,26 @@ def main(argv: list[str] | None = None) -> None:
     features_df = read_features_parquet(features_parquet)
 
     generators = [
-        ("fig_permutation_C_bar.png", gen_fig_permutation_C_bar, [results_dir, out_dir]),
-        ("fig_bootstrap_C_radar.png", gen_fig_bootstrap_C_radar, [bootstrap_dir, out_dir]),
+        # Superseded outputs are deliberately absent from this list. Their
+        # generator functions remain in this file but are not called, so that
+        # rerunning the batch cannot resurrect an artifact the manuscript no
+        # longer uses: gen_fig_permutation_C_bar, gen_fig_bootstrap_C_radar,
+        # gen_tab_descriptive_stats (superseded by the _full version),
+        # gen_fig_baseline_vs_extended, gen_tab_baseline_vs_extended,
+        # gen_tab_bootstrap_variance and gen_tab_permutation_coef (the last two
+        # superseded by the five-dimension tables from gen_coef_all5.py).
+        # fig_ensemble_permutation.png and fig_bootstrap_variance.png are kept
+        # below: the manuscript does not cite them, but gen_kamishibai_slides.py
+        # embeds them.
+        # Files owned by a dedicated generator are also absent, so that each has
+        # exactly one writer and no ordering dependency:
+        #   tab_ensemble_permutation.tex, fig_predicted_vs_observed.png,
+        #     tab_confound_all5.tex        -> gen_main_result_groupkfold.py
+        #   tab_sensitivity_alpha.tex, tab_cv_sensitivity.tex,
+        #     tab_permutation_all.tex      -> gen_sensitivity_tables.py
+        #   tab_coef_all5*.tex, fig_coef_all5.png -> gen_coef_all5.py
+        #   tab_baseline_conditions.tex    -> gen_tab_baseline_conditions.py
         ("fig_teacher_heatmap.png", gen_fig_teacher_heatmap, [out_dir]),
-        ("tab_descriptive_stats.tex", gen_tab_descriptive_stats, [features_parquet, out_dir]),
-        ("tab_permutation_all.tex", gen_tab_permutation_all, [results_dir, out_dir]),
         ("tab_feature_definitions.tex", gen_tab_feature_definitions, [out_dir]),
         # English caption twin for the English manuscript. Body is identical;
         # only the caption and continuation markers differ.
@@ -3346,27 +3359,20 @@ def main(argv: list[str] | None = None) -> None:
         ("fig_feature_distribution.png", gen_feature_distribution, [features_df, out_dir]),
         ("tab_descriptive_stats_full.tex", gen_descriptive_stats_full_table, [features_df, out_dir]),
         ("fig_corr_heatmap_block.png + tab_corr_matrix.tex", gen_corr_heatmap_block, [features_df, out_dir]),
-        # --- New ensemble / baseline-vs-extended figures and tables ---
+        # --- Slide-deck inputs: not cited by the manuscript, embedded by
+        #     gen_kamishibai_slides.py ---
         ("fig_ensemble_permutation.png", gen_fig_ensemble_permutation, [results_dir, out_dir]),
-        ("fig_baseline_vs_extended.png", gen_fig_baseline_vs_extended, [results_dir, out_dir]),
-        ("tab_ensemble_permutation.tex", gen_tab_ensemble_permutation, [results_dir, out_dir]),
-        ("tab_baseline_vs_extended.tex", gen_tab_baseline_vs_extended, [results_dir, out_dir]),
-        # --- Ridge-alpha sensitivity table (#22): reads the fixed sensitivity dir ---
-        ("tab_sensitivity_alpha.tex", gen_tab_sensitivity_alpha,
-         [Path("artifacts/analysis/results/sensitivity"), out_dir]),
-        # --- Predicted vs Observed scatter plot ---
-        ("fig_predicted_vs_observed.png", gen_fig_predicted_vs_observed, [results_dir, features_parquet, out_dir]),
-        # --- 3-stage Ridge, Bootstrap variance, Permutation coef, Teacher corr ---
-        # NOTE: fig_three_stage_comparison.png / tab_three_stage.tex は R²/RMSE 主指標版を
-        #   専用スクリプトで生成する（先祖返り防止のため batch から除外）:
-        #     python scripts/paper_figs/gen_fig_three_stage_r2.py --teacher ensemble
-        #     python scripts/paper_figs/gen_tab_three_stage_r2.py --teacher ensemble
-        #   付録 r 版 tab_three_stage_r.tex も後者が生成。旧 r 版関数
-        #   (gen_fig_three_stage_comparison / gen_tab_three_stage) は呼び出さない。
         ("fig_bootstrap_variance.png", gen_fig_bootstrap_variance, [results_dir, out_dir]),
-        ("tab_bootstrap_variance.tex", gen_tab_bootstrap_variance, [results_dir, out_dir]),
-        ("tab_permutation_coef.tex", gen_tab_permutation_coef, [results_dir, out_dir]),
+        # --- Between-model agreement ---
         ("fig_teacher_corr_matrix.png", gen_fig_teacher_corr_matrix, [results_dir, out_dir]),
+        # The three-stage figure and table use the R²/RMSE metric and have their
+        # own generators, kept out of this batch so a rerun cannot revert them to
+        # the correlation-based version:
+        #   python scripts/paper_figs/gen_fig_three_stage_r2.py --teacher ensemble
+        #   python scripts/paper_figs/gen_tab_three_stage_r2.py --teacher ensemble
+        # The second also writes the appendix r table, tab_three_stage_r.tex. The
+        # old correlation-based functions in this file
+        # (gen_fig_three_stage_comparison, gen_tab_three_stage) are never called.
     ]
 
     # --- Metadata-related generators (only when metadata is available) ---
@@ -3380,12 +3386,6 @@ def main(argv: list[str] | None = None) -> None:
         generators.append(
             ("tab_metadata_tests.tex", gen_tab_metadata_tests, [features_df, metadata_df, out_dir])
         )
-
-    # --- CONSORT flowchart (uses metadata_tsv path, works with or without it) ---
-    metadata_tsv_path = Path(args.metadata_tsv) if args.metadata_tsv else None
-    generators.append(
-        ("fig_consort_flowchart.png", gen_fig_consort_flowchart, [metadata_tsv_path, out_dir])
-    )
 
     for name, func, func_args in generators:
         try:

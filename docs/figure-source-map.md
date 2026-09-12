@@ -94,32 +94,44 @@ between-model agreement; extending it to these is an open item.
 make figures
 ```
 
-This runs the batch generator first, then the four dedicated generators. Order
-matters in one place: `gen_paper_figs_v2.py` still emits a plain-`KFold` version
-of `tab_ensemble_permutation.tex` and `fig_predicted_vs_observed.png`, and
-`gen_main_result_groupkfold.py` overwrites both with the subject-wise versions
-the manuscript reports. Running the batch generator alone therefore leaves those
-two files in a state the manuscript does not use. `make figures` always runs both.
+Every file in `reports/paper_figs_v2/` has exactly one writer, so the generators
+can be run in any order and none overwrites another's output.
 
-Two further generators sit outside the batch on purpose, so that rerunning it
-cannot revert the incremental-validity table to a superseded metric:
-`gen_fig_three_stage_r2.py` and `gen_tab_three_stage_r2.py` produce the R²/RMSE
-version, while the older functions inside `gen_paper_figs_v2.py`
-(`gen_fig_three_stage_comparison`, `gen_tab_three_stage`) produce the
-correlation-based version and are never called by the batch.
+Three generators sit outside the batch on purpose. `gen_fig_three_stage_r2.py`
+and `gen_tab_three_stage_r2.py` produce the R²/RMSE version of the
+incremental-validity figure and table, so that rerunning the batch cannot revert
+them to the correlation-based version; the old functions inside
+`gen_paper_figs_v2.py` (`gen_fig_three_stage_comparison`, `gen_tab_three_stage`)
+are never called. `gen_kamishibai_slides.py` writes the explainer deck and is run
+by `make slides`.
 
-## Files kept but no longer cited
+`gen_paper_figs_v2.py` accepts `--bootstrap_dir` but no longer reads it, because
+the only generator that used it is no longer in the batch. The option is kept so
+existing invocations do not break.
 
-`reports/paper_figs_v2/` also holds outputs that earlier drafts used and the
-current manuscript does not cite: `tab_permutation_coef.tex`,
-`tab_bootstrap_variance.tex`, `fig_bootstrap_variance.png`,
-`fig_permutation_C_bar.png`, `fig_bootstrap_C_radar.png` (all C-only, superseded
-by the five-dimension versions), `tab_three_stage_r.tex`,
-`tab_three_stage_r_legacy.tex`, `fig_three_stage_comparison.png`,
-`fig_three_stage_comparison_r_legacy.png`, `tab_baseline_vs_extended.tex`,
-`fig_baseline_vs_extended.png`, `fig_ensemble_permutation.png`,
-`tab_descriptive_stats.tex` and `fig_consort_flowchart.png`.
+## Not cited by the manuscript
 
-They are retained because the scripts that emit them are still in the repository
-and still run, so deleting the outputs would leave those scripts undocumented.
-Treat anything in this list as provenance, not as a manuscript figure.
+Four generated files remain in `reports/paper_figs_v2/` without a manuscript
+reference, each because something else still needs it:
+
+| File | Why it is here |
+|---|---|
+| `fig_ensemble_permutation.png` | embedded by `gen_kamishibai_slides.py` |
+| `fig_bootstrap_variance.png` | embedded by `gen_kamishibai_slides.py` |
+| `fig_three_stage_comparison.png` | written by `gen_fig_three_stage_r2.py`, embedded by the slide deck |
+| `tab_three_stage_r.tex` | written by `gen_tab_three_stage_r2.py` alongside `tab_three_stage.tex` |
+
+The slide deck still presents the incremental-validity analysis as a headline,
+which the manuscript no longer does. Treat it as an older explainer, not as a
+summary of the current paper.
+
+Outputs that nothing writes and nothing consumes were removed when the analysis
+moved to five dimensions: the C-only coefficient tables and figures
+(`tab_permutation_coef.tex`, `tab_bootstrap_variance.tex`,
+`fig_permutation_C_bar.png`, `fig_bootstrap_C_radar.png`), the classical-vs-extended
+appendix pair (`tab_baseline_vs_extended.tex`, `fig_baseline_vs_extended.png`),
+the short descriptive table superseded by the `_full` version
+(`tab_descriptive_stats.tex`), the sample-selection flowchart
+(`fig_consort_flowchart.png`), and two `_legacy` three-stage files. Their
+generator functions are still in `gen_paper_figs_v2.py`, listed in the comment at
+the top of its batch list, but are not called.
