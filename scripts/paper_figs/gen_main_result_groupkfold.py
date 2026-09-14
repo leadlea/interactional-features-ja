@@ -68,16 +68,24 @@ ALL_FEATURES = [
 ]
 
 
-def load_xy(datasets_dir: Path, metadata_tsv: Path, trait: str):
+def load_xy(datasets_dir: Path, metadata_tsv: Path, trait: str,
+            include_confounds: bool = False):
     fpath = datasets_dir / f"cejc_home2_hq1_XY_{trait}only_ensemble.parquet"
     df = pd.read_parquet(fpath).replace([np.inf, -np.inf], np.nan)
     meta = pd.read_csv(metadata_tsv, sep="\t")
-    merged = df.merge(
-        meta[["conversation_id", "speaker_id", "cejc_person_id"]],
-        on=["conversation_id", "speaker_id"], how="left",
-    )
+    meta_cols = ["conversation_id", "speaker_id", "cejc_person_id"]
+    if include_confounds:
+        meta_cols += ["gender", "age"]
+    merged = df.merge(meta[meta_cols], on=["conversation_id", "speaker_id"], how="left")
+
+    cols = list(ALL_FEATURES)
+    if include_confounds:
+        merged["confound_gender"] = merged["gender"].map({"M": 0, "F": 1}).astype(float)
+        merged["confound_age"] = pd.to_numeric(merged["age"], errors="coerce")
+        cols += ["confound_gender", "confound_age"]
+
     y = merged[f"Y_{trait}"].astype(float).to_numpy()
-    X = merged[ALL_FEATURES].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+    X = merged[cols].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
     groups = merged["cejc_person_id"].to_numpy()
     ok = ~np.isnan(y)
     return X[ok], y[ok], groups[ok]
@@ -104,24 +112,55 @@ def gen_tab_ensemble_permutation(summary: pd.DataFrame, out_dir: Path,
     """Headline result table; lang="en" also writes an English-header twin."""
     L = {"ja": {"dim": "次元", "verdict": "判定", "ns": "n.s."},
          "en": {"dim": "Dimension", "verdict": "Verdict", "ns": "n.s."}}[lang]
+
+    # RMSE and the pooled out-of-fold metrics are reported alongside the
+    # fold-averaged correlation. Ridge shrinks the predictions toward the mean, so a
+    # correlation alone is a weak summary; the fold-averaged r in particular ignores
+    # per-fold offsets in the predictions (for agreeableness the fold average is
+    # 0.517 while the pooled value is 0.366). The test statistic is the fold-averaged
+    # r, so that column is kept for consistency with the permutation test, and the
+    # pooled r, the coefficient of determination and the RMSE are placed next to it.
+    has_pooled = {"r_oof", "R2_oof", "RMSE"}.issubset(summary.columns)
+
     rows = []
     for trait in TRAITS:
         r = summary.loc[trait]
         sig = "*" if r["p_groupkfold_holm"] < 0.05 else L["ns"]
-        rows.append(
-            f"{trait} & {r['r_groupkfold']:.3f} & {r['p_groupkfold']:.4f} & "
-            f"{r['p_groupkfold_holm']:.4f} & {sig} \\\\"
+        if has_pooled:
+            rows.append(
+                f"{trait} & {r['r_groupkfold']:.3f} & {r['r_oof']:.3f} & "
+                f"{r['R2_oof']:.3f} & {r['RMSE']:.3f} & "
+                f"{r['p_groupkfold']:.4f} & {r['p_groupkfold_holm']:.4f} & {sig} \\\\"
+            )
+        else:
+            rows.append(
+                f"{trait} & {r['r_groupkfold']:.3f} & {r['p_groupkfold']:.4f} & "
+                f"{r['p_groupkfold_holm']:.4f} & {sig} \\\\"
+            )
+
+    if has_pooled:
+        latex = (
+            "\\begin{tabular}{lrrrrrrc}\n"
+            "\\toprule\n"
+            f"{L['dim']} & $r_{{\\mathrm{{fold}}}}$ & $r_{{\\mathrm{{oof}}}}$ & "
+            f"$R^{{2}}_{{\\mathrm{{oof}}}}$ & RMSE & $p$ & "
+            f"$p_{{\\mathrm{{corrected}}}}$ & {L['verdict']} \\\\\n"
+            "\\midrule\n"
+            + "\n".join(rows) + "\n"
+            "\\bottomrule\n"
+            "\\end{tabular}\n"
         )
-    latex = (
-        "\\begin{tabular}{lcccc}\n"
-        "\\toprule\n"
-        f"{L['dim']} & $r_{{\\mathrm{{obs}}}}$ & $p$ & "
-        f"$p_{{\\mathrm{{corrected}}}}$ & {L['verdict']} \\\\\n"
-        "\\midrule\n"
-        + "\n".join(rows) + "\n"
-        "\\bottomrule\n"
-        "\\end{tabular}\n"
-    )
+    else:
+        latex = (
+            "\\begin{tabular}{lcccc}\n"
+            "\\toprule\n"
+            f"{L['dim']} & $r_{{\\mathrm{{obs}}}}$ & $p$ & "
+            f"$p_{{\\mathrm{{corrected}}}}$ & {L['verdict']} \\\\\n"
+            "\\midrule\n"
+            + "\n".join(rows) + "\n"
+            "\\bottomrule\n"
+            "\\end{tabular}\n"
+        )
     suffix = "" if lang == "ja" else "_en"
     path = out_dir / f"tab_ensemble_permutation{suffix}.tex"
     path.write_text(latex, encoding="utf-8")
@@ -166,6 +205,7 @@ def gen_tab_confound_all5(confound: pd.DataFrame, out_dir: Path,
 def gen_fig_predicted_vs_observed(
     summary: pd.DataFrame, datasets_dir: Path, metadata_tsv: Path,
     out_dir: Path, alpha: float = 100.0, cv_folds: int = 5, seed: int = 42,
+    include_confounds: bool = False,
 ) -> None:
     import matplotlib
     matplotlib.use("Agg")
@@ -177,7 +217,8 @@ def gen_fig_predicted_vs_observed(
 
     for idx, trait in enumerate(TRAITS):
         ax = axes_flat[idx]
-        X, y, groups = load_xy(datasets_dir, metadata_tsv, trait)
+        X, y, groups = load_xy(datasets_dir, metadata_tsv, trait,
+                               include_confounds=include_confounds)
         y_pred = oof_predictions_groupkfold(
             X, y, groups, folds=cv_folds, seed=seed, alpha=alpha
         )
@@ -259,27 +300,43 @@ def gen_fig_predicted_vs_observed(
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--summary_tsv",
-                    default="artifacts/analysis/results/ensemble_perm_groupkfold/"
-                            "ensemble_summary_groupkfold.tsv")
+                    default="artifacts/analysis/results/ensemble_perm_groupkfold_modelB/"
+                            "ensemble_summary_modelB.tsv")
     ap.add_argument("--confound_tsv",
                     default="artifacts/analysis/results/confound_ensemble_all5.tsv")
     ap.add_argument("--datasets_dir", default="artifacts/analysis/datasets")
     ap.add_argument("--metadata_tsv",
                     default="artifacts/analysis/cejc_speaker_metadata.tsv")
     ap.add_argument("--out_dir", default="reports/paper_figs_v2")
+    ap.add_argument(
+        "--include_confounds", action="store_true", default=True,
+        help="散布図の予測を21変数（+性別・年齢）で作る。主結果の設計に合わせる既定",
+    )
+    ap.add_argument(
+        "--no_include_confounds", dest="include_confounds", action="store_false",
+        help="19変数で作る（旧主結果の再現用）",
+    )
+    ap.add_argument(
+        "--emit_confound_table", action="store_true",
+        help="tab_confound_all5 を生成する。2026-09-13 の方針変更で本文§3.6が"
+             "なくなったため既定では作らない（交絡統制済みモデルが主結果になったので"
+             "Model A と比較する表そのものが不要）",
+    )
     args = ap.parse_args()
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     summary = pd.read_csv(args.summary_tsv, sep="\t").set_index("trait")
-    confound = pd.read_csv(args.confound_tsv, sep="\t").set_index("trait")
 
     for lang in ("ja", "en"):
         gen_tab_ensemble_permutation(summary, out_dir, lang=lang)
-        gen_tab_confound_all5(confound, out_dir, lang=lang)
+        if args.emit_confound_table:
+            confound = pd.read_csv(args.confound_tsv, sep="\t").set_index("trait")
+            gen_tab_confound_all5(confound, out_dir, lang=lang)
     gen_fig_predicted_vs_observed(
-        summary, Path(args.datasets_dir), Path(args.metadata_tsv), out_dir
+        summary, Path(args.datasets_dir), Path(args.metadata_tsv), out_dir,
+        include_confounds=args.include_confounds,
     )
 
 

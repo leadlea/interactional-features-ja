@@ -33,9 +33,15 @@ manuscript.
    item-level responses are the external criterion.
 4. Test whether the features predict that criterion, under a subject-wise
    split, with permutation tests, bootstrap coefficient stability, sensitivity
-   analyses, confound control, and baseline conditions that check whether the
-   models are using the transcript at all. All five trait dimensions are analysed
-   and reported at the same granularity, down to the coefficient level.
+   analyses, and baseline conditions that check whether the models are using the
+   transcript at all. All five trait dimensions are analysed and reported at the
+   same granularity, down to the coefficient level.
+
+Speaker sex and age are entered as predictors alongside the 19 features, so the
+reported model has **21 predictors** and every association is estimated with those
+attributes held constant. There is no separate confound-control analysis: checking
+for confounding only requires entering the confounders simultaneously. The analysis
+scripts take `--include_confounds` for this design and write to `*_modelB` paths.
 
 The contribution is the measurement instrument and its validation procedure, not
 a personality prediction model. The trait scores are a criterion for validating
@@ -48,14 +54,14 @@ is diagnostic.
 scripts/
   cejc/            sample selection, monologue construction, sharding, speaker metadata
   big5/            IPIP-NEO-120 scoring via Amazon Bedrock, item subsetting, score merging
-  analysis/        features, Ridge + permutation + bootstrap, sensitivity, confounds, verification
+  analysis/        features, Ridge + permutation + bootstrap, sensitivity, power, verification
   baseline/        three-condition baseline validation
   dose_response/   feature manipulation experiment
   paper_figs/      figure and table generation
 tests/             unit and property-based tests (no corpus needed)
 docs/              methods documentation
 reports/
-  paper_figs_v2/   the manuscript's 8 figures and 13 LaTeX tables; tables with
+  paper_figs_v2/   the manuscript's 8 figures and 11 LaTeX tables; tables with
                    Japanese labels also have an `_en` twin written in the same run,
                    for the English version. Also holds kamishibai_slides.html, a
                    nine-slide walkthrough of the study written in Japanese
@@ -92,7 +98,13 @@ depend on the estimator implementation.
   files and writes a per-value match report: the main-result r and Holm-corrected
   p for all five dimensions, the concordant feature set per dimension, the
   plain-KFold values the appendix compares against, and the between-model
-  agreement.
+  agreement. Its expected values are still the 19-predictor ones, so the five
+  main-result rows currently report a mismatch until they are updated to the
+  21-predictor model.
+- `make power` reports what magnitude of association this design can detect: under
+  the null the fold-averaged r has SD = 0.128, giving a two-sided 5% critical value
+  of r = 0.250, and power reaches 50% at rho = 0.349 and 80% at rho = 0.438. This is
+  the sensitivity of the design, not post hoc power from an observed effect size.
 - Model endpoints are not version-frozen by the provider, so re-scoring may not
   return identical values. Everything downstream of fixed inputs does.
 

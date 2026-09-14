@@ -75,13 +75,24 @@ def pearsonr(a, b) -> float:
     return float((a * b).sum() / den) if den != 0 else float("nan")
 
 
-def cv_ridge_r(X, y, splits, seed, alpha, groups=None) -> float:
-    """Return the mean per-fold Pearson r (the aggregation used elsewhere here)."""
+def cv_ridge_r(X, y, splits, seed, alpha, groups=None, return_oof=False):
+    """Return the mean per-fold Pearson r (the aggregation used elsewhere here).
+
+    With ``return_oof=True`` the function returns
+    ``(fold-averaged r, out-of-fold prediction vector)`` instead, which is what the
+    pooled metrics (pooled r, R^2, RMSE) are computed from.
+
+    Ridge shrinks the predictions toward the mean, so a correlation alone is a weak
+    summary of fit and the RMSE should be reported next to it. The fold-averaged r
+    correlates within each fold and then averages, so it does not notice offsets
+    between folds; the pooled metrics do.
+    """
     if groups is not None:
         split_iter = GroupKFold(n_splits=splits).split(X, y, groups)
     else:
         split_iter = KFold(n_splits=splits, shuffle=True, random_state=seed).split(X)
     rs = []
+    oof = np.full(len(y), np.nan) if return_oof else None
     for tr, te in split_iter:
         Xtr, Xte = X[tr], X[te]
         ytr, yte = y[tr], y[te]
@@ -93,8 +104,37 @@ def cv_ridge_r(X, y, splits, seed, alpha, groups=None) -> float:
         Xte = sc.transform(Xte)
         m = Ridge(alpha=alpha, random_state=seed)
         m.fit(Xtr, ytr)
-        rs.append(pearsonr(yte, m.predict(Xte)))
-    return float(np.mean(rs))
+        pred = m.predict(Xte)
+        rs.append(pearsonr(yte, pred))
+        if return_oof:
+            oof[te] = pred
+    r_foldmean = float(np.mean(rs))
+    if return_oof:
+        return r_foldmean, oof
+    return r_foldmean
+
+
+def pooled_metrics(y, oof) -> dict[str, float]:
+    """Metrics computed from the concatenated out-of-fold predictions.
+
+    - ``r_oof``: Pearson r over all records pooled together
+    - ``R2_oof``: 1 - SSE/SST (the coefficient of determination; can be negative)
+    - ``RMSE`` / ``MAE``: the size of the prediction error; read alongside SD(y)
+    - ``sd_y``: the reference needed to interpret the RMSE
+    """
+    y = np.asarray(y, float)
+    oof = np.asarray(oof, float)
+    ok = ~np.isnan(oof)
+    y, oof = y[ok], oof[ok]
+    sse = float(np.sum((y - oof) ** 2))
+    sst = float(np.sum((y - y.mean()) ** 2))
+    return {
+        "r_oof": pearsonr(y, oof),
+        "R2_oof": 1.0 - sse / sst if sst > 0 else float("nan"),
+        "RMSE": float(np.sqrt(sse / len(y))),
+        "MAE": float(np.mean(np.abs(y - oof))),
+        "sd_y": float(y.std(ddof=1)),
+    }
 
 
 def run_perm(X, y, splits, seed, alpha, n_perm, groups=None):
@@ -129,33 +169,55 @@ def holm_correction(p_values: list[float]) -> list[float]:
     return corrected
 
 
-def load_trait_data(datasets_dir: str, meta: pd.DataFrame, trait: str):
-    """Return (X, y, groups) for one trait; 19 predictors, rows with NaN y dropped."""
+CONFOUND_COLS = ["confound_gender", "confound_age"]
+
+
+def load_trait_data(datasets_dir: str, meta: pd.DataFrame, trait: str,
+                    include_confounds: bool = False):
+    """Return (X, y, groups, feature_names) for one trait; rows with NaN y dropped.
+
+    With ``include_confounds=True`` the design matrix has 21 columns: the 19
+    interactional features plus speaker sex (M=0 / F=1) and age. The coding matches
+    ``confound_analysis_groupkfold.py``. This confound-controlled design is the one
+    reported as the headline result: rather than comparing two models to check for
+    confounding, sex and age are entered as predictors and the resulting model is
+    reported directly.
+    """
     fpath = Path(datasets_dir) / f"cejc_home2_hq1_XY_{trait}only_ensemble.parquet"
     if not fpath.exists():
         raise SystemExit(f"dataset not found: {fpath}")
     df = pd.read_parquet(fpath).replace([np.inf, -np.inf], np.nan)
-    merged = df.merge(
-        meta[["conversation_id", "speaker_id", "cejc_person_id"]],
-        on=["conversation_id", "speaker_id"], how="left",
-    )
+
+    meta_cols = ["conversation_id", "speaker_id", "cejc_person_id"]
+    if include_confounds:
+        meta_cols += ["gender", "age"]
+    merged = df.merge(meta[meta_cols], on=["conversation_id", "speaker_id"], how="left")
+
     missing = [c for c in ALL_FEATURES if c not in merged.columns]
     if missing:
         raise KeyError(f"Missing feature columns: {missing}")
     if merged["cejc_person_id"].isna().any():
         raise SystemExit("some records could not be joined to a cejc_person_id")
+
+    feature_names = list(ALL_FEATURES)
+    if include_confounds:
+        merged["confound_gender"] = merged["gender"].map({"M": 0, "F": 1}).astype(float)
+        merged["confound_age"] = pd.to_numeric(merged["age"], errors="coerce")
+        feature_names = feature_names + CONFOUND_COLS
+
     y = merged[f"Y_{trait}"].astype(float).to_numpy()
-    X = merged[ALL_FEATURES].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+    X = merged[feature_names].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
     groups = merged["cejc_person_id"].to_numpy()
     ok = ~np.isnan(y)
-    return X[ok], y[ok], groups[ok]
+    return X[ok], y[ok], groups[ok], feature_names
 
 
 def run_alpha_sweep(args, meta: pd.DataFrame, alphas: list[float]) -> None:
     """Sensitivity to the regularisation parameter (GroupKFold, all five traits)."""
     rows = []
     for trait in TRAITS:
-        X, y, groups = load_trait_data(args.datasets_dir, meta, trait)
+        X, y, groups, _ = load_trait_data(args.datasets_dir, meta, trait,
+                                          args.include_confounds)
         for a in alphas:
             t0 = time.time()
             r_obs, p = run_perm(X, y, args.cv_folds, args.seed, a,
@@ -205,6 +267,11 @@ def main():
         default="artifacts/analysis/results/ensemble_perm_groupkfold/"
                 "sensitivity_alpha_groupkfold.tsv",
     )
+    ap.add_argument(
+        "--include_confounds", action="store_true",
+        help="run with 21 predictors: the 19 features plus speaker sex and age "
+             "(the confound-controlled design). This is the headline result.",
+    )
     args = ap.parse_args()
 
     meta = pd.read_csv(args.metadata_tsv, sep="\t")
@@ -216,7 +283,8 @@ def main():
 
     rows = []
     for trait in TRAITS:
-        X, y, groups = load_trait_data(args.datasets_dir, meta, trait)
+        X, y, groups, _ = load_trait_data(args.datasets_dir, meta, trait,
+                                          args.include_confounds)
         print(f"[{trait}] N={len(y)}, features={X.shape[1]}, "
               f"speakers={len(np.unique(groups))}")
         t0 = time.time()
@@ -224,9 +292,16 @@ def main():
                               args.n_perm, groups=None)
         r_gkf, p_gkf = run_perm(X, y, args.cv_folds, args.seed, args.alpha,
                                 args.n_perm, groups=groups)
+        # The pooled metrics are not used for inference (the test statistic is the
+        # fold-averaged r); they are computed so they can be reported alongside it.
+        _, oof = cv_ridge_r(X, y, args.cv_folds, args.seed, args.alpha,
+                            groups=groups, return_oof=True)
+        pm = pooled_metrics(y, oof)
         print(f"  KFold      : r={r_kf:.4f} p={p_kf:.4f}")
         print(f"  GroupKFold : r={r_gkf:.4f} p={p_gkf:.4f} "
               f"(dr={r_gkf - r_kf:+.4f}, {time.time() - t0:.1f}s)")
+        print(f"  pooled     : r_oof={pm['r_oof']:.4f} R2={pm['R2_oof']:+.4f} "
+              f"RMSE={pm['RMSE']:.4f} (SD(y)={pm['sd_y']:.4f})")
         rows.append({
             "trait": trait,
             "n": int(len(y)),
@@ -236,6 +311,11 @@ def main():
             "r_groupkfold": round(r_gkf, 4),
             "p_groupkfold": round(p_gkf, 4),
             "delta_r": round(r_gkf - r_kf, 4),
+            "r_oof": round(pm["r_oof"], 4),
+            "R2_oof": round(pm["R2_oof"], 4),
+            "RMSE": round(pm["RMSE"], 4),
+            "MAE": round(pm["MAE"], 4),
+            "sd_y": round(pm["sd_y"], 4),
         })
 
     result = pd.DataFrame(rows)

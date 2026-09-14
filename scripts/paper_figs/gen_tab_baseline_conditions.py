@@ -89,7 +89,7 @@ def main():
     ap.add_argument(
         "--tsv",
         default="artifacts/analysis/results/baseline_validation/"
-                "baseline_conditions_groupkfold.tsv",
+                "baseline_conditions_modelB.tsv",
     )
     ap.add_argument("--out_dir", default="reports/paper_figs_v2")
     args = ap.parse_args()

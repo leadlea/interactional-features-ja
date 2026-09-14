@@ -131,18 +131,33 @@ which is the following, in order:
 
 | Target | What it produces | Reported as |
 |---|---|---|
-| `make permutation-groupkfold` | permutation test on the ensemble scores, five traits, subject-wise split, Holm-corrected | **main result** |
-| `make coefficients-all5` | per-feature permutation test and bootstrap CIs, five dimensions | which features carry it |
-| `make confound-all5` | sex and age as additional predictors, five dimensions | confound control |
+| `make modelb-datasets` | datasets carrying the sex and age columns (`cejc_home2_hq1_XYB_*`) | input to everything below |
+| `make permutation-groupkfold` | permutation test on the ensemble scores, five traits, 21 predictors, subject-wise split, Holm-corrected, plus pooled r / R² / RMSE | **main result** |
+| `make coefficients-all5` | per-feature permutation test and bootstrap CIs, five dimensions, 21 predictors | which features carry it |
 | `make sensitivity-alpha` | alpha grid x five dimensions | robustness |
+| `make power` | critical value and the rho at 50% / 80% power for this design | method: sample size and power |
 | `make groupkfold-compare` | KFold vs GroupKFold, all trait x model combinations | appendix: CV design |
-| `make three-stage` | demographics -> +classical -> +novel, R² / RMSE, paired bootstrap | appendix: incremental validity (exploratory) |
 | `make speaker-overlap` | unique speakers and repeat appearances | justifies GroupKFold |
 | `make teacher-agreement` | between-model correlation per trait | appendix: how stable the outcome is |
 | `make permutation` | the same headline test under a plain KFold | superseded; kept for the CV comparison |
-| `make coefficients` | per-feature tests for C only | superseded by `coefficients-all5` |
 | `make sensitivity` | `gap_tol`, yes/no lexicon, ne/yo matching variants | robustness |
-| `make confound` | sex/age control, per model | appendix breakdown |
+
+The reported model has **21 predictors**: the 19 interactional features plus speaker sex
+and age. The targets above pass `--include_confounds` and write to `*_modelB` paths, so
+the 19-predictor outputs are never overwritten. Running a script by hand without the flag
+produces the 19-predictor numbers in the 19-predictor path, where `make figures` will not
+read them.
+
+`make analysis-unreported` runs what is kept reproducible but not reported:
+
+| Target | What it produces | Why it is not reported |
+|---|---|---|
+| `make three-stage` | demographics -> +classical -> +novel, R² / RMSE, paired bootstrap | stage 3 is the same model as the main result, and N=120 cannot judge the stage 2 -> 3 increment |
+| `make confound-all5` / `make confound` | features-only vs features-plus-demographics | the reported model already enters sex and age, so the comparison is redundant |
+| `make permutation-groupkfold-featuresonly` | the headline test on the 19 features only | kept so the effect of adding the covariates stays reproducible |
+| `make coefficients-all5-featuresonly` | coefficient tests on the 19 features only | same |
+| `make coefficients` | per-feature tests for C only | superseded by `coefficients-all5` |
+| `make baseline-vs-extended` | classical-only vs classical+novel | superseded by the coefficient-level results |
 
 `make groupkfold-compare` is the longest step: five traits x four models x two CV
 designs x `N_PERM` permutations. Its output file name carries the iteration count
@@ -168,9 +183,11 @@ make coefficients-all5 N_PERM=50 N_BOOT=20
 make figures
 ```
 
-Overwrites `reports/paper_figs_v2/` with the 8 figures and 13 LaTeX tables the
+Overwrites `reports/paper_figs_v2/` with the 8 figures and 11 LaTeX tables the
 manuscript uses, plus the English-caption twin of every table that has Japanese
-labels. Which figure comes from which script and which result file is tabulated in
+labels. The generators read the `*_modelB` result paths, so `make analysis` (or at
+least `permutation-groupkfold`, `coefficients-all5`, `sensitivity-alpha` and
+`baseline-conditions`) has to run first. Which figure comes from which script and which result file is tabulated in
 [figure-source-map.md](figure-source-map.md).
 
 Each file has exactly one generator, so the order does not matter and no step
@@ -195,11 +212,19 @@ row per checked value and a match flag. It covers the main-result r and
 Holm-corrected p for all five dimensions, the concordant feature set named for
 each dimension, the plain-KFold values the appendix compares against, and the
 between-model agreement. Expected values are transcribed from the manuscript and
-compared at the precision the manuscript prints. `verify-consistency` covers two places
-where the same quantity is computed differently — the three-stage Stage 3
-correlation versus the predicted-vs-observed scatter — and reports which of the
-two axes (feature set, or fold-averaged versus pooled out-of-fold aggregation)
-accounts for the difference.
+compared at the precision the manuscript prints.
+
+`verify-consistency` covers two places where the same quantity is computed
+differently — the staged comparison's Stage 3 correlation versus the
+predicted-vs-observed scatter — and reports which of the two axes (feature set, or
+fold-averaged versus pooled out-of-fold aggregation) accounts for the difference.
+Stage 3 is now the same model as the main result, so that check doubles as
+confirmation that the two chains agree; they match to four decimal places on all
+five dimensions.
+
+The expected values in `verify_reproducibility.py` are still the 19-predictor ones,
+so `make verify` reports mismatches on the five main-result rows until they are
+updated to the reported model.
 
 ---
 

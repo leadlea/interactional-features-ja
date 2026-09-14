@@ -8,8 +8,8 @@ findings drift apart.
 
 ## The shape of the problem
 
-N = 120 records, 19 predictors, and an outcome that is itself an estimate rather
-than a measurement. That combination makes three failure modes worth guarding
+N = 120 records, 21 predictors (19 interactional features plus speaker sex and
+age), and an outcome that is itself an estimate rather than a measurement. That combination makes three failure modes worth guarding
 against explicitly: overfitting, leakage across the split, and reading noise as
 signal across five simultaneous tests.
 
@@ -21,7 +21,17 @@ SimpleImputer(median) -> StandardScaler -> Ridge
 
 Ridge rather than OLS because several features are correlated by construction
 (`PG_pause_mean` / `p50` / `p90` measure the same distribution at different
-points). Imputation and scaling sit inside the pipeline, so both are fitted on
+points).
+
+The design matrix carries **21 columns**: the 19 interactional features plus
+speaker sex (M=0 / F=1) and age. Sex and age are entered as predictors rather
+than handled in a separate confound-control analysis, so every reported
+association is estimated with those attributes held constant. Checking for
+confounding only requires entering the confounders simultaneously; comparing a
+features-only model against a features-plus-demographics model adds nothing to
+that question. `--include_confounds` selects this design in every analysis
+script, and `build_modelb_datasets.py` prepares the datasets the
+coefficient-level scripts read (`cejc_home2_hq1_XYB_*`). Imputation and scaling sit inside the pipeline, so both are fitted on
 training folds only; doing either before the split would leak test-fold
 information through the median and the standardisation constants.
 
@@ -115,46 +125,72 @@ bootstrap 95% interval excluding zero. Only concordant features support
 conclusions. A feature that passes one procedure but not the other is shown in
 the table with a distinct mark and described as a possible contributor.
 
-Both procedures are run for all five dimensions
-(`scripts/analysis/run_coef_bootstrap_all5.sh`), at the same granularity, so that
-no dimension is described in more detail than the others. Earlier drafts reported
+Both procedures are run for all five dimensions over the same 21 predictors
+(`scripts/analysis/run_coef_bootstrap_all5_modelb.sh`), at the same granularity,
+so that no dimension is described in more detail than the others. Only the 19
+proposed features are counted as concordant features; sex and age are listed
+separately at the foot of the table, since they are not part of the proposed
+instrument. Entering them raises the bar for the features, because the
+covariates compete for the same variance. Earlier drafts reported
 this level only for C. The five-dimension result files could not be recycled from
 those earlier runs: they were computed under a superseded 18-feature
 specification, so both procedures are rerun uniformly on the final 19 features.
 
-## Confound control
+## What is reported alongside r
 
-Sex and age are added as predictors and the analysis is rerun with the same
-subject-wise split (`scripts/analysis/confound_analysis_groupkfold.py`). The
-question is whether the feature-outcome association survives, not whether the
-confounded model predicts better.
+The test statistic is the **fold-averaged** Pearson r: the correlation is computed
+within each test fold and then averaged, which is the aggregation the permutation
+loop uses. That number alone is a weak summary of fit, for two reasons:
 
-This is the primary answer to "could demographics explain this?", and it is
-reported for all five dimensions on the model-ensemble scores
-(`make confound-all5`). The per-model breakdown is an appendix table
-(`make confound`). Adding variables to the feature set, rather than starting from
-demographics and adding features, keeps the feature set as the reference point,
-which is the right framing for a paper whose contribution is the feature set.
+- Ridge shrinks the predictions toward the mean, so the predicted range is
+  narrower than the observed range. Pearson r is invariant to affine rescaling of
+  the prediction, so it does not notice.
+- Averaging per-fold correlations ignores offsets between folds. For agreeableness
+  the fold-averaged r is 0.517 while the pooled out-of-fold r is 0.366.
 
-## Incremental validity (exploratory)
+So the headline table reports six quantities per dimension: fold-averaged r,
+pooled out-of-fold r, pooled out-of-fold R², RMSE, the raw p, and the corrected p.
+RMSE is read against SD(y) for that dimension, which
+`ensemble_permutation_groupkfold.py` also writes to the result TSV. Keeping the
+fold-averaged r in the table matters because it is the quantity the p-value refers
+to; dropping it would leave the test and the table describing different things.
 
-Three nested models, in a fixed order: demographics (sex, age) -> plus
-classical features -> plus novel features. The primary metric is pooled
-out-of-fold R² with RMSE alongside, and the increment from stage 2 to stage 3 is
-tested with a paired bootstrap over per-record squared errors.
+## Incremental validity
 
-Correlation r is invariant to affine rescaling of the prediction, so it cannot
-distinguish a better-calibrated model from one that merely covaries; it is not a
-proper basis for an incremental-validity claim and is not used as the metric here.
+Whether the newly defined features add predictive value over the established ones
+is a separate question from whether they contribute, and only the second one is
+reported. A staged comparison (demographics -> plus classical -> plus novel,
+pooled out-of-fold R² with a paired bootstrap over per-record squared errors) is
+implemented in `three_stage_ridge.py`, `three_stage_metrics_diag.py` and
+`three_stage_paired_test.py` and remains runnable, but it is not reported: the
+stage 2 -> 3 increment is not consistently significant, and at N = 120 the design
+does not have the sensitivity to judge the increment of a nine-variable block (see
+the power estimate below).
 
-This analysis is **exploratory and reported in an appendix**, not as a main
-result. The stage 2 -> 3 increment is not consistently significant across
-dimensions, and where it is not, it is reported as not significant. The claim
-that the newly defined features contribute is carried by the coefficient-level
-results above instead, which address it more directly: they say which features
-contribute to which dimension, rather than whether a block of nine features
-raises R² on N = 120. The figure generator deliberately does not shade bars in a
-way that would imply significance the test does not show.
+Note that stage 3 of that comparison is the same model as the headline result — 19
+features plus sex and age — so the two agree by construction. That equality is
+worth checking rather than assuming; `three_stage_metrics_ensemble.tsv` and
+`ensemble_summary_modelB.tsv` match to four decimal places on all five dimensions.
+
+The claim that the newly defined features contribute is carried by the
+coefficient-level results above, which address it more directly: they say which
+features contribute to which dimension, rather than whether a block of nine
+features raises R² on N = 120.
+
+## Statistical power
+
+The sample size was not fixed by an a priori power calculation; it is every record
+that passed the eligibility filter. `power_analysis_design.py --include_confounds`
+therefore estimates what the design can detect, holding the observed 21-column
+design matrix and the real speaker grouping fixed and generating the outcome
+synthetically. Under the null the fold-averaged r has SD = 0.128, so the two-sided
+5% critical value is r = 0.250; power reaches 50% at a population multiple
+correlation of rho = 0.349 and 80% at rho = 0.438.
+
+This is the sensitivity of the design, not post hoc power computed from an observed
+effect size. It bounds the interpretation in both directions: a non-significant
+result here is not evidence of no association, and a significance verdict close to
+the critical value is fragile.
 
 ## Sensitivity analyses
 
@@ -169,10 +205,14 @@ recomputed:
 | `alpha` | 10, 50, 100, 200, 500 | all five | `ensemble_permutation_groupkfold.py --alpha_sweep` | how much the regularisation strength matters |
 | CV design | KFold, GroupKFold | all five, all four models | `groupkfold_all.py` | how much the subject-wise split changes the estimate |
 
-The alpha sweep and the CV comparison run under the same subject-wise design and
-the same Holm correction as the main result, so their numbers are directly
-comparable to it. A dimension whose significance depends on alpha is described as
-marginal rather than significant.
+The alpha sweep and the CV comparison run under the same subject-wise design, the
+same 21 predictors, and the same Holm correction as the main result, so their
+numbers are directly comparable to it.
+
+A dimension is reported as significant or not significant at the pre-specified
+level, and nothing in between: "marginal" has no meaning inside a null-hypothesis
+test. Where the verdict changes with alpha, that dependence is stated in the
+sensitivity analysis and discussed, not folded into the verdict itself.
 
 The point is not to find the best variant. It is to show whether the reported
 association depends on a threshold that was chosen without strong justification.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """紙芝居スライド生成スクリプト
 
-現行原稿（5次元均等・subject-wise split 版）の構成に合わせたHTML生成スクリプト。
+現行原稿（5次元均等・subject-wise split・交絡統制モデル主結果 版）の構成に合わせたHTML生成スクリプト。
 Methods 2枚 + 本文Results 5枚 + 付録 2枚 = 計9枚。
 各スライドに (a) タイトル、(b) 図表またはテキスト/HTMLコンテンツ、(c) 結論テキスト（1〜2文）を含む。
 画像不在時はプレースホルダーテキスト「[図表未生成: {filename}]」を表示する。
@@ -10,16 +10,18 @@ Methods 2枚 + 本文Results 5枚 + 付録 2枚 = 計9枚。
   Slide 3-4 → 本文 記述統計量・相関分析
   Slide 5   → 本文 性格特性との関連（主結果。GroupKFold による subject-wise split）
   Slide 6   → 本文 各性格次元に寄与する相互行為特徴量（一致特徴量）
-  Slide 7   → 本文 交絡変数の統制
+  Slide 7   → 本文 α感度／検出力（結果は判定のみ、依存性は考察で扱う）
   Slide 8-9 → 付録 コーパス基本情報との関連／ベースライン検証
 
-3段階Ridge回帰は原稿で本文から外し付録の探索的検討に移したため、
-このスライドでも扱わない。埋め込む図はすべて現行原稿の掲載図である。
+2026-09-14 改訂（宗田先生ご指示）で主結果を Model B（19特徴量＋性別＋年齢＝21変数）に変更した。
+交絡統制は独立した分析ではなく主結果そのものになったため、旧 Slide 7（Model A/B 比較）は
+α感度・検出力のスライドに差し替えている。3段階Ridge・増分妥当性は原稿から削除済みなので扱わない。
+埋め込む図はすべて現行原稿の掲載図である。
 
 数値の出所（すべて reports/paper_figs_v2/ 配下の生成表と一致させること）:
   Slide 5 → tab_ensemble_permutation.tex
   Slide 6 → tab_coef_all5.tex
-  Slide 7 → tab_confound_all5.tex
+  Slide 7 → tab_sensitivity_alpha.tex ＋ power_analysis_design_modelB.json
   Slide 9 → tab_baseline_conditions.tex ＋ 付録ベースライン検証の本文
 
 出力: reports/paper_figs_v2/kamishibai_slides.html
@@ -162,32 +164,45 @@ SLIDES: list[Slide] = [
         title="性格特性との関連（主結果）",
         images=["fig_predicted_vs_observed.png"],
         conclusion=(
-            "5次元すべてがHolm補正後も有意（r = 0.254〜0.423）。"
-            "ただしEは p_Holm = 0.049 で境界的であり、α = 10・50 では非有意になる。"
+            "性別・年齢を統制した上で、5次元すべてがHolm補正後も有意"
+            "（r_fold = 0.254〜0.517、p_Holm = .002〜.047）。"
+            "ただし R²_oof は 0.07〜0.18 で、予測精度そのものは高くない。"
         ),
         methods_note=(
-            "4教師のIPIP-NEO-120 item-level平均 → Ridge（α=100）+ 5-fold GroupKFold"
-            "（cejc_person_id単位）+ 置換検定5,000回 + 5次元Holm補正。"
-            "散布図の r は fold平均のPearson r。"
+            "4教師のIPIP-NEO-120 item-level平均 → Ridge（α=100、説明変数は19特徴量＋性別＋年齢の21変数）"
+            "+ 5-fold GroupKFold（cejc_person_id単位）+ 置換検定5,000回 + 5次元Holm補正。"
+            "検定統計量は fold ごとの Pearson r の平均（r_fold）。"
+            "r_oof / R²_oof / RMSE は out-of-fold 予測を全体で連結して算出。"
         ),
         html_content=(
             '<div class="methods-text">'
-            "<h3>置換検定の結果（仮想Big5アンサンブル、19特徴量）</h3>"
+            "<h3>置換検定の結果（仮想Big5アンサンブル、19特徴量＋性別＋年齢＝21変数）</h3>"
             '<table class="feature-table">'
             "<thead><tr>"
-            "<th>次元</th><th>r<sub>obs</sub></th><th>p</th><th>p<sub>Holm</sub></th><th>判定</th>"
+            "<th>次元</th><th>r<sub>fold</sub></th><th>r<sub>oof</sub></th>"
+            "<th>R²<sub>oof</sub></th><th>RMSE</th><th>p</th><th>p<sub>Holm</sub></th><th>判定</th>"
             "</tr></thead>"
             "<tbody>"
-            "<tr><td>O 開放性</td><td>0.337</td><td>0.0062</td><td>0.0124</td><td>*</td></tr>"
-            "<tr><td>C 誠実性</td><td>0.423</td><td>0.0008</td><td>0.0040</td><td>*</td></tr>"
-            "<tr><td>E 外向性</td><td>0.254</td><td>0.0490</td><td>0.0490</td><td>*（境界的）</td></tr>"
-            "<tr><td>A 協調性</td><td>0.397</td><td>0.0022</td><td>0.0072</td><td>*</td></tr>"
-            "<tr><td>N 神経症傾向</td><td>0.410</td><td>0.0018</td><td>0.0072</td><td>*</td></tr>"
+            "<tr><td>O 開放性</td><td>0.401</td><td>0.403</td><td>0.154</td><td>0.311</td>"
+            "<td>0.0010</td><td>0.0030</td><td>*</td></tr>"
+            "<tr><td>C 誠実性</td><td>0.447</td><td>0.426</td><td>0.182</td><td>0.382</td>"
+            "<td>0.0004</td><td>0.0020</td><td>*</td></tr>"
+            "<tr><td>E 外向性</td><td>0.254</td><td>0.269</td><td>0.072</td><td>0.330</td>"
+            "<td>0.0472</td><td>0.0472</td><td>*</td></tr>"
+            "<tr><td>A 協調性</td><td>0.517</td><td>0.366</td><td>0.126</td><td>0.240</td>"
+            "<td>0.0004</td><td>0.0020</td><td>*</td></tr>"
+            "<tr><td>N 神経症傾向</td><td>0.406</td><td>0.294</td><td>0.079</td><td>0.349</td>"
+            "<td>0.0012</td><td>0.0030</td><td>*</td></tr>"
             "</tbody></table>"
             '<div class="note-box">'
-            "この値は subject-wise split（GroupKFold）によるもの。"
-            "通常KFoldではO 0.410 / C 0.432 / E 0.234 / A 0.449 / N 0.317 となり、"
-            "有意性の判定が変わるのはEのみである（付録に併記）。"
+            "相関だけを見ないための併記である。A は r_fold 0.517 に対し r_oof 0.366 で、"
+            "fold平均は楽観的になりうる。RMSE は各次元の sd_y"
+            "（O 0.340 / C 0.424 / E 0.344 / A 0.258 / N 0.366）と比べて読む。"
+            "<br/>関連は性別・年齢を統制した上で得られているため、属性情報だけでは説明できない。"
+            "一方で「頑健」と主張できるほど精度が高いわけではない。"
+            "<br/>この値は subject-wise split（GroupKFold）によるもの。"
+            "通常KFoldでは O 0.481 / C 0.469 / E 0.237 / A 0.538 / N 0.311 で、"
+            "判定が変わるのはEのみである（付録に併記）。"
             "</div>"
             "</div>"
         ),
@@ -197,24 +212,25 @@ SLIDES: list[Slide] = [
         title="各性格次元に寄与する相互行為特徴量",
         images=["fig_coef_all5.png"],
         conclusion=(
-            "一致特徴量は5次元すべてで同定され計23個。うち9個が本研究で新たに定義した"
-            "連鎖組織系（IX）・応答型系（RESP）であり、O・C・A・Nの4次元で寄与した。"
+            "一致特徴量は5次元すべてで同定され計18個。うち6個が本研究で新たに定義した"
+            "連鎖組織系（IX）・応答型系（RESP）であり、C・A・Nの3次元で寄与した。"
         ),
         methods_note=(
-            "19特徴量×5次元の回帰係数（α=100、全データfit）。"
+            "21変数（19特徴量＋性別＋年齢）×5次元の回帰係数（α=100、全データfit）。"
             "係数ごとの置換検定5,000回で p<0.05、かつ Bootstrap 500回の95%CIがゼロを除外する"
             "特徴量を「一致特徴量」と定義する（両方を満たすものだけを寄与とみなす）。"
+            "統制変数は提案特徴量ではないため、下の集計からは除いている。"
         ),
         html_content=(
             '<div class="methods-text">'
-            "<h3>一致特徴量の内訳</h3>"
+            "<h3>一致特徴量の内訳（提案19特徴量のみ。統制変数は別掲）</h3>"
             '<table class="feature-table">'
             "<thead><tr>"
             "<th>次元</th><th>O</th><th>C</th><th>E</th><th>A</th><th>N</th><th>計</th>"
             "</tr></thead>"
             "<tbody>"
-            "<tr><td>一致特徴量数</td><td>6</td><td>5</td><td>3</td><td>7</td><td>2</td><td>23</td></tr>"
-            "<tr><td>うち新規（Novel）</td><td>1</td><td>3</td><td>0</td><td>3</td><td>2</td><td>9</td></tr>"
+            "<tr><td>一致特徴量数</td><td>5</td><td>4</td><td>3</td><td>4</td><td>2</td><td>18</td></tr>"
+            "<tr><td>うち新規（Novel）</td><td>0</td><td>2</td><td>0</td><td>2</td><td>2</td><td>6</td></tr>"
             "</tbody></table>"
             "<h3>読み取り</h3>"
             "<ul>"
@@ -222,47 +238,57 @@ SLIDES: list[Slide] = [
             "<li>Nは一致特徴量2個がいずれも新規特徴量（質問直後修復開始率・YES/NO応答率）で、"
             "しかもCとは逆符号</li>"
             "<li>Eは沈黙系3指標のみで、新規特徴量の寄与がない</li>"
-            "<li>修復開始率（IX_oirmarker_rate）と沈黙長の変動係数（PG_pause_variability）は"
-            "5次元のいずれでも一致特徴量にならなかった</li>"
+            "<li>統制変数自体も基準を満たす（O・Cは年齢、Aは性別）。提案特徴量ではないので集計外</li>"
+            "<li>修復開始率（IX_oirmarker_rate）・語彙重複（IX_lex_overlap_mean）・"
+            "沈黙長の変動係数（PG_pause_variability）などは5次元のいずれでも一致特徴量にならなかった</li>"
             "</ul>"
             '<div class="note-box">'
-            "「19の特徴量が本当に効いているのか」という問いに対しては、"
-            "特徴量群を足し込む3段階Ridgeよりも、この係数レベルの結果が直接的な答えになる。"
+            "性別・年齢を同時に投入したため、統制なし（19変数）のときより基準が厳しくなっている。"
+            "一致特徴量は 23個→18個、新規は 9個→6個、新規が寄与する次元は 4→3次元（C・A・N）。"
+            "Oから「ね」直後相槌率が落ちたことが次元数減少の理由である。"
             "</div>"
             "</div>"
         ),
     ),
     Slide(
         number=7,
-        title="交絡変数の統制",
+        title="正則化パラメータへの依存と検出力",
         images=[],
         conclusion=(
-            "性別・年齢を説明変数に加えてもrは低下せず（Δr = −0.004〜+0.120）、"
-            "特徴量とBig5の関連は人口統計の交絡では説明されない。"
+            "O・C・A・N は α = 10〜500 の全範囲でHolm補正後も有意。"
+            "E のみ α = 10 で非有意になり、有意性が正則化の強さに依存する。"
         ),
         methods_note=(
-            "Model A（19特徴量）と Model B（+性別・年齢）を同一の GroupKFold 設計で比較。"
-            "置換1,000回。問うているのは「関連が残るか」であり「予測精度が上がるか」ではない。"
+            "α ∈ {10, 50, 100, 200, 500} で主結果（Model B・21変数・GroupKFold・置換5,000回・Holm補正）"
+            "を再計算。結果としては各αでの判定のみを述べ、依存性の解釈は考察で扱う。"
+            "検出力は21変数・N=120 の設計から算出。"
         ),
         html_content=(
             '<div class="methods-text">'
-            "<h3>Model A（19特徴量）vs Model B（+性別・年齢）</h3>"
+            "<h3>α感度（r<sub>obs</sub>）</h3>"
             '<table class="feature-table">'
             "<thead><tr>"
-            "<th>次元</th><th>Model A r</th><th>Model A p</th>"
-            "<th>Model B r</th><th>Model B p</th><th>Δr</th>"
+            "<th>α</th><th>O</th><th>C</th><th>E</th><th>A</th><th>N</th>"
             "</tr></thead>"
             "<tbody>"
-            "<tr><td>O</td><td>0.337</td><td>0.0070</td><td>0.401</td><td>0.0020</td><td>+0.064</td></tr>"
-            "<tr><td>C</td><td>0.423</td><td>0.0020</td><td>0.447</td><td>0.0010</td><td>+0.024</td></tr>"
-            "<tr><td>E</td><td>0.254</td><td>0.0559</td><td>0.254</td><td>0.0509</td><td>+0.000</td></tr>"
-            "<tr><td>A</td><td>0.397</td><td>0.0030</td><td>0.517</td><td>0.0010</td><td>+0.120</td></tr>"
-            "<tr><td>N</td><td>0.410</td><td>0.0030</td><td>0.406</td><td>0.0010</td><td>−0.004</td></tr>"
+            "<tr><td>10</td><td>0.421</td><td>0.433</td><td>0.240 (n.s.)</td><td>0.479</td><td>0.315</td></tr>"
+            "<tr><td>50</td><td>0.410</td><td>0.442</td><td>0.255</td><td>0.510</td><td>0.384</td></tr>"
+            "<tr><td><b>100</b>（本文）</td><td><b>0.401</b></td><td><b>0.447</b></td>"
+            "<td><b>0.254</b></td><td><b>0.517</b></td><td><b>0.406</b></td></tr>"
+            "<tr><td>200</td><td>0.392</td><td>0.449</td><td>0.253</td><td>0.517</td><td>0.419</td></tr>"
+            "<tr><td>500</td><td>0.380</td><td>0.445</td><td>0.253</td><td>0.509</td><td>0.424</td></tr>"
             "</tbody></table>"
+            "<h3>検出力（有意水準5%・21変数・N=120）</h3>"
+            "<ul>"
+            "<li>臨界値は r = 0.2504。<b>E の r = 0.254 は臨界値 +0.004</b> の位置にある</li>"
+            "<li>検出力 50% には母相関 ρ = 0.349、80% には ρ = 0.438 が必要</li>"
+            "<li>したがって E の有意性は N=120 では判定が揺れる。追試が必要な次元である</li>"
+            "</ul>"
             '<div class="note-box">'
-            "特徴量を基準にして人口統計を足す向きで検証している。"
-            "特徴量提案論文としては、人口統計から出発して特徴量を足す3段階Ridgeより"
-            "素直な立て付けになる。"
+            "α を強めると O は単調に下がり（0.421→0.380）、N は単調に上がる（0.315→0.424）。"
+            "向きが逆なのは、O が少数の強い係数に依存し、N が多数の弱い係数の和で立っているためと解釈できる。"
+            "帰無仮説検定の枠組みでは「境界的」という判定は置かないので、"
+            "結果では各αでの有意/非有意のみを報告する。"
             "</div>"
             "</div>"
         ),
@@ -274,7 +300,7 @@ SLIDES: list[Slide] = [
         images=["fig_metadata_gender.png", "fig_metadata_age.png"],
         conclusion=(
             "一部の特徴量に性別・年齢との有意な関連が認められる。"
-            "この点はSlide 7の交絡統制で扱っている。"
+            "この点は主結果（Slide 5）が性別・年齢を説明変数に含むことで統制されている。"
         ),
         methods_note=(
             "性別: Mann-Whitney U検定（レコード単位で女性66件・男性54件）。"
@@ -287,14 +313,15 @@ SLIDES: list[Slide] = [
         images=[],
         conclusion=(
             "条件3（ランダムテキスト）で関連が消失 → LLMはテキストと話者の対応を読んでいる。"
-            "条件2（要約のみ）はrが高いがCronbach's αが0.3以下に崩れており、"
+            "条件2（要約のみ）は次元によってrが条件1を上回るが Cronbach's α が0.3以下に崩れており、"
             "「推定精度が高い」のではなく入力が乏しいときLLMが表層量へ依存することを示す。"
         ),
         methods_note=(
             "条件1: テキスト全文（本文の主結果と同一）。条件2: 4統計量のみ"
             "（発話数・平均発話長・会話長・フィラー数）。条件3: 別話者テキスト"
             "（derangement, seed=42）。3条件すべて本文と同一設定"
-            "（19特徴量、α=100、5-fold GroupKFold、置換5,000回、Holm補正）で再計算。"
+            "（21変数＝19特徴量＋性別＋年齢、α=100、5-fold GroupKFold、置換5,000回、Holm補正）で再計算。"
+            "条件1は主結果と4桁一致するので、主結果側の再現性チェックにもなっている。"
         ),
         html_content=(
             '<div class="methods-text">'
@@ -305,11 +332,11 @@ SLIDES: list[Slide] = [
             "<th>条件3<br/>ランダム</th><th>判定</th>"
             "</tr></thead>"
             "<tbody>"
-            "<tr><td>O</td><td>0.337 *</td><td>0.546 *</td><td>0.021</td><td>条件3で消失</td></tr>"
-            "<tr><td>C</td><td>0.423 *</td><td>0.649 *</td><td>−0.090</td><td>条件3で消失</td></tr>"
-            "<tr><td>E</td><td>0.254 *</td><td>0.296 *</td><td>−0.032</td><td>条件3で消失</td></tr>"
-            "<tr><td>A</td><td>0.397 *</td><td>0.479 *</td><td>0.201</td><td>条件3で消失</td></tr>"
-            "<tr><td>N</td><td>0.410 *</td><td>0.748 *</td><td>−0.179</td><td>条件3で消失</td></tr>"
+            "<tr><td>O</td><td>0.401 *</td><td>0.538 *</td><td>−0.009</td><td>条件3で消失</td></tr>"
+            "<tr><td>C</td><td>0.447 *</td><td>0.641 *</td><td>0.039</td><td>条件3で消失</td></tr>"
+            "<tr><td>E</td><td>0.254 *</td><td>0.295 *</td><td>0.020</td><td>条件3で消失</td></tr>"
+            "<tr><td>A</td><td>0.517 *</td><td>0.464 *</td><td>0.242</td><td>条件3で消失</td></tr>"
+            "<tr><td>N</td><td>0.406 *</td><td>0.747 *</td><td>−0.120</td><td>条件3で消失</td></tr>"
             "</tbody></table>"
             "<h3>Cronbach's α（回答の内的一貫性、4モデル平均）</h3>"
             '<table class="feature-table">'
@@ -325,11 +352,13 @@ SLIDES: list[Slide] = [
             "</tbody></table>"
             "<h3>解釈</h3>"
             "<ul>"
-            "<li>条件3で全次元が非有意（p<sub>Holm</sub> ≥ 0.587）→ 陰性対照として機能。"
+            "<li>条件3で全次元が非有意（p<sub>Holm</sub> ≥ 0.287）→ 陰性対照として機能。"
             "プロンプトの構造や回答バイアスだけで関連が出ているのではない</li>"
+            "<li>条件2の Δr は +0.053〜−0.342。N・C・O では条件1を大きく上回るが、"
+            "A では逆に下がる（0.517→0.464）</li>"
             "<li>条件2はrが高いがαが0.3以下 → 項目間で一貫した性格像を作れていないのに"
             "相関だけが立っている。入力が4数値に限られるとLLMの出力が入力の単調関数に近づくため</li>"
-            "<li>本文の一致特徴量23個のうち9個はIX系・RESP系で、条件2の4統計量からは"
+            "<li>本文の一致特徴量18個のうち6個はIX系・RESP系で、条件2の4統計量からは"
             "算出できない → 提案特徴量の寄与は表層統計量に還元されない</li>"
             "<li>この3条件比較はLLM採点の性質を調べるもので、"
             "提案特徴量そのものの妥当性を直接評価するものではない</li>"

@@ -61,6 +61,11 @@ NOVEL_FEATURES = [
 
 ALL_FEATURES = CLASSICAL_FEATURES + NOVEL_FEATURES  # 19
 
+# The headline model is "interactional features + sex + age", so the coefficient-level
+# analysis can be run over the same 21 predictors via --include_confounds. Those columns
+# live in the XYB_* datasets prepared by build_modelb_datasets.py.
+CONFOUND_COLS = ["confound_gender", "confound_age"]
+
 
 # ── Core testable function ───────────────────────────────────────────
 def run_bootstrap_variance(
@@ -202,8 +207,16 @@ def main():
     ap.add_argument("--alpha", type=float, default=100.0, help="Ridge alpha")
     ap.add_argument("--n_boot", type=int, default=500, help="Bootstrap iterations")
     ap.add_argument("--seed", type=int, default=42, help="Random seed")
+    ap.add_argument(
+        "--include_confounds", action="store_true",
+        help="run with 21 predictors, adding speaker sex and age (the design used "
+             "for the headline result). Pass an XYB_* dataset.",
+    )
     ap.add_argument("--out_dir", required=True, help="Output directory")
     args = ap.parse_args()
+
+    feature_cols = (ALL_FEATURES + CONFOUND_COLS
+                    if args.include_confounds else ALL_FEATURES)
 
     # ── Load data ────────────────────────────────────────────────────
     df = pd.read_parquet(args.xy_parquet)
@@ -213,21 +226,21 @@ def main():
         raise SystemExit(f"y_col not found: {args.y_col}")
 
     # ── Validate feature columns ─────────────────────────────────────
-    missing = [c for c in ALL_FEATURES if c not in df.columns]
+    missing = [c for c in feature_cols if c not in df.columns]
     if missing:
         raise KeyError(f"Missing feature columns: {missing}")
 
     # ── Run bootstrap variance analysis ──────────────────────────────
     print(f"\n{'='*60}")
     print(f"  Bootstrap variance analysis")
-    print(f"  y_col={args.y_col}, N features={len(ALL_FEATURES)}")
+    print(f"  y_col={args.y_col}, N features={len(feature_cols)}")
     print(f"  alpha={args.alpha}, n_boot={args.n_boot}, seed={args.seed}")
     print(f"{'='*60}")
 
     result = run_bootstrap_variance(
         df=df,
         y_col=args.y_col,
-        feature_cols=ALL_FEATURES,
+        feature_cols=feature_cols,
         alpha=args.alpha,
         n_boot=args.n_boot,
         seed=args.seed,
@@ -241,12 +254,16 @@ def main():
     stem = Path(args.xy_parquet).stem
     trait = "unknown"
     teacher = "unknown"
-    if "_XY_" in stem:
-        after_xy = stem.split("_XY_")[1]
-        parts = after_xy.split("_", 1)
-        if len(parts) == 2:
-            trait_part, teacher = parts
-            trait = trait_part.replace("only", "")
+    # XYB_ marks the confound-controlled (21-predictor) datasets; the trait and
+    # teacher are parsed with the same rule as for XY_.
+    for marker in ("_XYB_", "_XY_"):
+        if marker in stem:
+            after_xy = stem.split(marker)[1]
+            parts = after_xy.split("_", 1)
+            if len(parts) == 2:
+                trait_part, teacher = parts
+                trait = trait_part.replace("only", "")
+            break
 
     # ── Write output TSV ─────────────────────────────────────────────
     out_dir = Path(args.out_dir)
@@ -260,7 +277,7 @@ def main():
     n_excl = result["ci_excludes_zero"].sum()
     print(
         f"\n  Features with CI excluding zero: "
-        f"{n_excl}/{len(ALL_FEATURES)}"
+        f"{n_excl}/{len(feature_cols)}"
     )
 
 

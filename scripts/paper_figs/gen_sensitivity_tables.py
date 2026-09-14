@@ -4,10 +4,11 @@ r"""Sensitivity tables (alpha, CV design) under subject-wise CV.
 
 Inputs
 ------
-- ``artifacts/analysis/results/ensemble_perm_groupkfold/sensitivity_alpha_groupkfold.tsv``
-  from ``ensemble_permutation_groupkfold.py --alpha_sweep 10,50,100,200,500 --n_perm 5000``
-- ``artifacts/analysis/results/ensemble_perm_groupkfold/ensemble_summary_groupkfold.tsv``
-  from ``ensemble_permutation_groupkfold.py --n_perm 5000``
+- ``artifacts/analysis/results/ensemble_perm_groupkfold_modelB/sensitivity_alpha_modelB.tsv``
+  from ``ensemble_permutation_groupkfold.py --include_confounds
+  --alpha_sweep 10,50,100,200,500 --n_perm 5000``
+- ``artifacts/analysis/results/ensemble_perm_groupkfold_modelB/ensemble_summary_modelB.tsv``
+  from ``ensemble_permutation_groupkfold.py --include_confounds --n_perm 5000``
 
 Outputs (``reports/paper_figs_v2/``)
 ------------------------------------
@@ -171,9 +172,9 @@ def gen_tab_permutation_all(gkf_tsv: Path, out_dir: Path,
 
 def main():
     ap = argparse.ArgumentParser()
-    base = "artifacts/analysis/results/ensemble_perm_groupkfold"
-    ap.add_argument("--sweep_tsv", default=f"{base}/sensitivity_alpha_groupkfold.tsv")
-    ap.add_argument("--summary_tsv", default=f"{base}/ensemble_summary_groupkfold.tsv")
+    base = "artifacts/analysis/results/ensemble_perm_groupkfold_modelB"
+    ap.add_argument("--sweep_tsv", default=f"{base}/sensitivity_alpha_modelB.tsv")
+    ap.add_argument("--summary_tsv", default=f"{base}/ensemble_summary_modelB.tsv")
     ap.add_argument(
         "--per_model_tsv",
         default="artifacts/analysis/results/groupkfold_vs_kfold_all_nperm5000.tsv",

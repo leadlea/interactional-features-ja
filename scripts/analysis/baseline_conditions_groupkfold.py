@@ -92,10 +92,22 @@ def main():
     ap.add_argument("--cv_folds", type=int, default=5)
     ap.add_argument("--n_perm", type=int, default=5000)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument(
+        "--include_confounds", action="store_true",
+        help="run with 21 predictors, adding speaker sex and age (the design used "
+             "for the headline result). Condition 1 has to match the headline "
+             "result, otherwise the delta r across conditions is not comparable.",
+    )
     args = ap.parse_args()
 
     feat = pd.read_parquet(args.features_parquet).replace([np.inf, -np.inf], np.nan)
     meta = pd.read_csv(args.metadata_tsv, sep="\t")
+
+    meta_cols = ["conversation_id", "speaker_id", "cejc_person_id"]
+    feature_cols = list(ALL_FEATURES)
+    if args.include_confounds:
+        meta_cols += ["gender", "age"]
+        feature_cols += ["confound_gender", "confound_age"]
 
     rows = []
     for cond_name, suffix in CONDITIONS.items():
@@ -103,14 +115,18 @@ def main():
             scores = load_condition_scores(Path(args.items_dir), trait, suffix)
             merged = (
                 scores.merge(feat, on=["conversation_id", "speaker_id"], how="inner")
-                      .merge(meta[["conversation_id", "speaker_id", "cejc_person_id"]],
+                      .merge(meta[meta_cols],
                              on=["conversation_id", "speaker_id"], how="left")
             )
-            missing = [c for c in ALL_FEATURES if c not in merged.columns]
+            if args.include_confounds:
+                merged["confound_gender"] = (
+                    merged["gender"].map({"M": 0, "F": 1}).astype(float))
+                merged["confound_age"] = pd.to_numeric(merged["age"], errors="coerce")
+            missing = [c for c in feature_cols if c not in merged.columns]
             if missing:
                 raise KeyError(f"Missing feature columns: {missing}")
             y = merged["y"].astype(float).to_numpy()
-            X = merged[ALL_FEATURES].apply(pd.to_numeric, errors="coerce") \
+            X = merged[feature_cols].apply(pd.to_numeric, errors="coerce") \
                                     .to_numpy(dtype=float)
             groups = merged["cejc_person_id"].to_numpy()
             ok = ~np.isnan(y)

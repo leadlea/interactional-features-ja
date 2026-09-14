@@ -44,8 +44,8 @@ EXCLUDE_COLS := n_pairs_total,n_pairs_after_NE,n_pairs_after_YO,IX_n_pairs,IX_n_
 
 .PHONY: help setup test \
         pairs monologues shards items features metadata \
-        analysis permutation permutation-groupkfold three-stage \
-        coefficients coefficients-all5 sensitivity sensitivity-alpha \
+        analysis modelb-datasets permutation permutation-groupkfold three-stage \
+        coefficients coefficients-all5 sensitivity sensitivity-alpha power \
         confound confound-all5 \
         groupkfold-compare baseline-vs-extended speaker-overlap teacher-agreement \
         figures slides \
@@ -75,10 +75,11 @@ help:
 	@echo ""
 	@echo ""
 	@echo "Individual analysis steps (all included in 'make analysis')"
-	@echo "  make permutation-groupkfold  main result, subject-wise split"
+	@echo "  make permutation-groupkfold  main result, 21 predictors, subject-wise"
 	@echo "  make coefficients-all5       coefficient tests, five dimensions"
-	@echo "  make confound-all5           sex/age control, five dimensions"
 	@echo "  make sensitivity-alpha       alpha grid x five dimensions"
+	@echo "  make power                   what this design can detect"
+	@echo "  make analysis-unreported     analyses kept for review responses"
 	@echo "  make groupkfold-compare      KFold vs GroupKFold (longest step)"
 	@echo ""
 	@echo "Validation experiments"
@@ -149,13 +150,27 @@ TRAITS      := O C E A N
 TEACHER     := ensemble
 XY          = $(DATASET_DIR)/cejc_home2_hq1_XY_$(1)only_$(TEACHER).parquet
 
-# outputs of the subject-wise (GroupKFold) main-result chain
+# The reported model has 21 predictors: the 19 interactional features plus speaker
+# sex and age. Every analysis in the main-result chain takes --include_confounds and
+# writes to a *_modelB path, so the 19-predictor outputs stay intact for the appendix
+# comparisons. Forgetting the flag silently produces the 19-predictor numbers, which
+# is why the paths differ rather than being overwritten in place.
 PERM_GK_DIR       := $(RESULTS_DIR)/ensemble_perm_groupkfold
+PERM_MB_DIR       := $(RESULTS_DIR)/ensemble_perm_groupkfold_modelB
 COEF_ALL5_DIR     := $(RESULTS_DIR)/coef_bootstrap_all5
+COEF_ALL5_MB_DIR  := $(RESULTS_DIR)/coef_bootstrap_all5_modelb
 CONFOUND_ALL5_TSV := $(RESULTS_DIR)/confound_ensemble_all5.tsv
 GK_CMP_TSV        := $(RESULTS_DIR)/groupkfold_vs_kfold_all_nperm$(N_PERM).tsv
 BL_COND_GK_TSV    := $(RESULTS_DIR)/baseline_validation/baseline_conditions_groupkfold.tsv
+BL_COND_MB_TSV    := $(RESULTS_DIR)/baseline_validation/baseline_conditions_modelB.tsv
+POWER_MB_JSON     := $(RESULTS_DIR)/power_analysis_design_modelB.json
 ALPHA_GRID        := 10,50,100,200,500
+
+# Datasets carrying the sex and age columns, read by the coefficient-level scripts.
+# Everything downstream of coefficients-all5 depends on this target.
+modelb-datasets:
+	$(PYTHON) scripts/analysis/build_modelb_datasets.py \
+	  --datasets_dir $(DATASET_DIR) --metadata_tsv $(META_TSV) --teacher $(TEACHER)
 
 # superseded main result: permutation test under a plain KFold. Kept because the
 # alpha sensitivity table and the appendix report the KFold-vs-GroupKFold gap, so
@@ -168,15 +183,31 @@ permutation:
 	  --out_dir $(RESULTS_DIR)
 
 # main result: permutation test on the model-ensemble scores, all five traits,
-# subject-wise GroupKFold over cejc_person_id, Holm-corrected across traits
+# 21 predictors (features + sex + age), subject-wise GroupKFold over cejc_person_id,
+# Holm-corrected across traits. Also writes the pooled out-of-fold r, R2, RMSE and
+# SD(y) that the headline table reports next to the fold-averaged r.
 permutation-groupkfold:
+	$(PYTHON) scripts/analysis/ensemble_permutation_groupkfold.py \
+	  --datasets_dir $(DATASET_DIR) \
+	  --metadata_tsv $(META_TSV) \
+	  --include_confounds \
+	  --out_tsv $(PERM_MB_DIR)/ensemble_summary_modelB.tsv \
+	  --alpha 100 --cv_folds 5 --n_perm $(N_PERM) --seed $(SEED)
+
+# the same test on the 19 features only. Not reported; kept so the effect of adding
+# the covariates stays reproducible if a reviewer asks.
+permutation-groupkfold-featuresonly:
 	$(PYTHON) scripts/analysis/ensemble_permutation_groupkfold.py \
 	  --datasets_dir $(DATASET_DIR) \
 	  --metadata_tsv $(META_TSV) \
 	  --out_tsv $(PERM_GK_DIR)/ensemble_summary_groupkfold.tsv \
 	  --alpha 100 --cv_folds 5 --n_perm $(N_PERM) --seed $(SEED)
 
-# three-stage model comparison: demographics -> +classical -> +novel
+# three-stage model comparison: demographics -> +classical -> +novel.
+# Not reported: stage 3 is the same model as the main result, and at N=120 the design
+# cannot judge the stage 2 -> 3 increment. Kept runnable for review responses, and
+# because comparing its stage 3 against the main result is a useful cross-check
+# (they agree to four decimal places).
 THREE_STAGE_DIR := $(RESULTS_DIR)/three_stage_metrics
 three-stage:
 	@for t in $(TRAITS); do \
@@ -205,8 +236,13 @@ coefficients:
 	  --n_boot $(N_BOOT) --seed $(SEED) --out_dir $(RESULTS_DIR)
 
 # reported scope: coefficient permutation test + bootstrap stability for all five
-# dimensions, on the final 19-feature specification
-coefficients-all5:
+# dimensions, over the 21 predictors of the reported model. Requires modelb-datasets.
+coefficients-all5: modelb-datasets
+	PY=$(PYTHON) ALPHA=100 N_PERM=$(N_PERM) N_BOOT=$(N_BOOT) SEED=$(SEED) \
+	  bash scripts/analysis/run_coef_bootstrap_all5_modelb.sh
+
+# the same procedures on the 19 features only. Not reported; kept for comparison.
+coefficients-all5-featuresonly:
 	PY=$(PYTHON) ALPHA=100 N_PERM=$(N_PERM) N_BOOT=$(N_BOOT) SEED=$(SEED) \
 	  bash scripts/analysis/run_coef_bootstrap_all5.sh
 
@@ -222,12 +258,24 @@ sensitivity-alpha:
 	$(PYTHON) scripts/analysis/ensemble_permutation_groupkfold.py \
 	  --datasets_dir $(DATASET_DIR) \
 	  --metadata_tsv $(META_TSV) \
+	  --include_confounds \
 	  --alpha_sweep $(ALPHA_GRID) \
-	  --alpha_sweep_tsv $(PERM_GK_DIR)/sensitivity_alpha_groupkfold.tsv \
+	  --alpha_sweep_tsv $(PERM_MB_DIR)/sensitivity_alpha_modelB.tsv \
 	  --cv_folds 5 --n_perm $(N_PERM) --seed $(SEED)
 
-# does the association survive controlling for speaker sex and age
-# (subject-wise GroupKFold; runs all trait x model combinations)
+# what magnitude of association this design can detect, for the 21-predictor model.
+# Not post hoc power: the outcome is generated synthetically, so the estimate does
+# not depend on the observed effect sizes.
+power:
+	$(PYTHON) scripts/analysis/power_analysis_design.py \
+	  --datasets_dir $(DATASET_DIR) --metadata_tsv $(META_TSV) \
+	  --include_confounds --seed $(SEED)
+
+# The reported model already controls for sex and age, so neither target below is
+# reported. They compare a features-only model against a features-plus-demographics
+# model, which the reported design makes redundant. Kept runnable for review responses.
+#
+# all trait x model combinations
 confound:
 	$(PYTHON) scripts/analysis/confound_analysis_groupkfold.py \
 	  --datasets_dir $(DATASET_DIR) \
@@ -235,7 +283,7 @@ confound:
 	  --out_tsv $(RESULTS_DIR)/confound_groupkfold_all.tsv \
 	  --n_perm 1000
 
-# reported scope: the same control, five dimensions, ensemble scores only
+# five dimensions, ensemble scores only
 confound-all5:
 	$(PYTHON) scripts/analysis/confound_analysis_groupkfold.py \
 	  --datasets_dir $(DATASET_DIR) \
@@ -268,11 +316,17 @@ speaker-overlap:
 teacher-agreement:
 	$(PYTHON) scripts/analysis/teacher_agreement_big5.py
 
-analysis: permutation permutation-groupkfold three-stage \
-          coefficients coefficients-all5 \
-          sensitivity sensitivity-alpha confound confound-all5 \
+analysis: modelb-datasets permutation permutation-groupkfold \
+          coefficients-all5 \
+          sensitivity sensitivity-alpha power \
           groupkfold-compare speaker-overlap teacher-agreement
 	@echo "analysis: done -> $(RESULTS_DIR)"
+
+# analyses that are no longer reported but stay reproducible for review responses
+analysis-unreported: three-stage coefficients confound confound-all5 \
+                     permutation-groupkfold-featuresonly \
+                     coefficients-all5-featuresonly baseline-vs-extended
+	@echo "analysis-unreported: done -> $(RESULTS_DIR)"
 
 # ---------------------------------------------------------------------------
 # Step 8: figures and tables
@@ -281,28 +335,23 @@ figures:
 	$(PYTHON) scripts/paper_figs/gen_paper_figs_v2.py \
 	  --metadata_tsv $(META_TSV) \
 	  --out_dir $(FIG_DIR)
-	@# Incremental-validity table (appendix). gen_fig_three_stage_r2.py writes the
-	@# matching figure, which the manuscript does not use, so it is not run here.
-	@# Run it directly if you want the figure.
-	$(PYTHON) scripts/paper_figs/gen_tab_three_stage_r2.py \
-	  --teacher $(TEACHER) --metrics_dir $(THREE_STAGE_DIR) --out_dir $(FIG_DIR)
-	@# Main-result table and scatter, and the confound table, under GroupKFold.
+	@# Main-result table and scatter, from the 21-predictor chain.
 	@# Every file has one writer, so these can run in any order relative to the
-	@# batch generator above.
+	@# batch generator above. The incremental-validity table and the separate
+	@# confound table are no longer in the manuscript and are not produced here.
 	$(PYTHON) scripts/paper_figs/gen_main_result_groupkfold.py \
-	  --summary_tsv $(PERM_GK_DIR)/ensemble_summary_groupkfold.tsv \
-	  --confound_tsv $(CONFOUND_ALL5_TSV) \
+	  --summary_tsv $(PERM_MB_DIR)/ensemble_summary_modelB.tsv \
 	  --datasets_dir $(DATASET_DIR) --metadata_tsv $(META_TSV) \
 	  --out_dir $(FIG_DIR)
 	$(PYTHON) scripts/paper_figs/gen_coef_all5.py \
-	  --results_dir $(COEF_ALL5_DIR) --out_dir $(FIG_DIR)
+	  --results_dir $(COEF_ALL5_MB_DIR) --out_dir $(FIG_DIR)
 	$(PYTHON) scripts/paper_figs/gen_sensitivity_tables.py \
-	  --sweep_tsv $(PERM_GK_DIR)/sensitivity_alpha_groupkfold.tsv \
-	  --summary_tsv $(PERM_GK_DIR)/ensemble_summary_groupkfold.tsv \
+	  --sweep_tsv $(PERM_MB_DIR)/sensitivity_alpha_modelB.tsv \
+	  --summary_tsv $(PERM_MB_DIR)/ensemble_summary_modelB.tsv \
 	  --per_model_tsv $(GK_CMP_TSV) \
 	  --out_dir $(FIG_DIR)
 	$(PYTHON) scripts/paper_figs/gen_tab_baseline_conditions.py \
-	  --tsv $(BL_COND_GK_TSV) --out_dir $(FIG_DIR)
+	  --tsv $(BL_COND_MB_TSV) --out_dir $(FIG_DIR)
 
 slides:
 	$(PYTHON) scripts/paper_figs/gen_kamishibai_slides.py
@@ -366,7 +415,8 @@ baseline-conditions:
 	  --items_dir artifacts/big5/llm_scores \
 	  --features_parquet $(FEATURES_PQ) \
 	  --metadata_tsv $(META_TSV) \
-	  --out_tsv $(BL_COND_GK_TSV) \
+	  --include_confounds \
+	  --out_tsv $(BL_COND_MB_TSV) \
 	  --alpha 100 --cv_folds 5 --n_perm $(N_PERM) --seed $(SEED)
 
 # ---------------------------------------------------------------------------

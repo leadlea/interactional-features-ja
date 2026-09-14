@@ -322,7 +322,7 @@ def print_summary(data: dict[str, pd.DataFrame]) -> None:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--results_dir",
-                    default="artifacts/analysis/results/coef_bootstrap_all5")
+                    default="artifacts/analysis/results/coef_bootstrap_all5_modelb")
     ap.add_argument("--out_dir", default="reports/paper_figs_v2")
     args = ap.parse_args()
 
