@@ -16,9 +16,36 @@ transcripts; it is a separate clause. Depositing the feature matrix or the trait
 scores in a public archive would be providing derived data to third parties, which
 the agreement does not permit.
 
-A synthetic dataset of matching structure is planned for the archived release, so that
-you can check your implementation is correct without anything derived from the corpus
-being redistributed. It is not in the repository yet.
+## Running the pipeline without the corpus
+
+`artifacts/synthetic/` holds a dataset of the same shape and schema as the real analysis
+inputs, so the pipeline can be run end to end without the corpus:
+
+```bash
+make synthetic          # rebuild it
+make synthetic-check    # run the headline analysis on it
+```
+
+It is built from **published summary statistics only**, so nothing derived from the corpus
+is redistributed:
+
+- `reports/paper_figs_v2/tab_descriptive_stats_full.tex` — N, mean, SD and the five-number
+  summary of each feature
+- `reports/paper_figs_v2/tab_corr_matrix.tex` — the 19x19 correlation matrix, to two
+  decimals
+- the record, conversation, speaker and sex counts stated in the manuscript
+
+Two quantities are **not** taken from the corpus at all, because the manuscript does not
+publish them: the age distribution and the location and scale of the trait scores. Both are
+command-line parameters of `scripts/synthetic/gen_synthetic_dataset.py` with arbitrary
+defaults, and `artifacts/synthetic/PROVENANCE.json` records that.
+
+**It does not reproduce the reported results, and it is not meant to.** By default the
+outcome is drawn independently of the features, so every test should come out
+non-significant — which is what makes it useful: it confirms the pipeline runs and that the
+null case behaves correctly. `--rho` injects an association of known strength for checking
+that the pipeline detects one. A dataset built from marginals and a correlation matrix
+cannot carry the structure the findings rest on, in either mode.
 
 The agreement also treats an extract of "a very small number of sentences" as
 equivalent to the corpus itself, so no utterance example appears in the manuscript or

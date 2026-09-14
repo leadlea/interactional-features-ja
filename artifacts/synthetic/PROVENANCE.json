@@ -1,0 +1,19 @@
+{
+  "purpose": "structural stand-in for the real analysis inputs, which the CEJC licence does not permit redistributing",
+  "inputs": [
+    "reports/paper_figs_v2/tab_descriptive_stats_full.tex",
+    "reports/paper_figs_v2/tab_corr_matrix.tex",
+    "record and speaker counts stated in the manuscript (section 2.1)"
+  ],
+  "not_derived_from_corpus": [
+    "the age distribution (see --age_mean / --age_sd; the manuscript does not publish age descriptives)",
+    "the trait score location and scale (see --y_mean / --y_sd)"
+  ],
+  "reproduces_reported_results": false,
+  "outcome": "independent of the features",
+  "n_records": 120,
+  "n_predictors_XY": 19,
+  "n_predictors_XYB": 21,
+  "correlation_psd_adjustment": 0.0,
+  "seed": 42
+}

@@ -48,6 +48,7 @@ EXCLUDE_COLS := n_pairs_total,n_pairs_after_NE,n_pairs_after_YO,IX_n_pairs,IX_n_
         coefficients coefficients-all5 sensitivity sensitivity-alpha power \
         confound confound-all5 \
         groupkfold-compare baseline-vs-extended speaker-overlap teacher-agreement \
+        synthetic synthetic-check \
         figures slides \
         verify verify-consistency \
         baseline-prep baseline-dirs baseline-compare baseline-conditions \
@@ -68,6 +69,10 @@ help:
 	@echo "  make analysis             step 7  all statistical analyses"
 	@echo "  make figures              step 8  manuscript figures and tables"
 	@echo "  make verify               step 9  reproducibility checks"
+	@echo ""
+	@echo "Without the corpus"
+	@echo "  make synthetic            build a structural stand-in from published stats"
+	@echo "  make synthetic-check      run the main analysis on it (expects null results)"
 	@echo ""
 	@echo "Model scoring (AWS Bedrock, billable) -- see docs/reproduction.md"
 	@echo "  DRY_RUN=1 bash scripts/big5/run_scoring_sharded.sh   (plan only)"
@@ -474,3 +479,33 @@ dose-report:
 	    --verification_tsv $(DOSE_OUT)/feature_verification_$$f.tsv \
 	    --out_dir $(DOSE_OUT) || exit 1; \
 	done
+
+# ---------------------------------------------------------------------------
+# Running without the corpus
+#
+# The CEJC agreement does not permit redistributing the feature matrix or the trait
+# scores, so the real analysis inputs are not in this repository. `make synthetic`
+# builds a stand-in of the same shape from published summary statistics only, which
+# lets you confirm the pipeline executes without anything derived from the corpus
+# changing hands. It does not reproduce the reported results and is not meant to:
+# by default the outcome is independent of the features, so every test should come
+# out non-significant.
+# ---------------------------------------------------------------------------
+SYNTH_DIR  := artifacts/synthetic
+SYNTH_RHO  ?= 0
+
+synthetic:
+	$(PYTHON) scripts/synthetic/gen_synthetic_dataset.py \
+	  --fig_dir $(FIG_DIR) --out_dir $(SYNTH_DIR) \
+	  --rho $(SYNTH_RHO) --seed $(SEED)
+
+# Smoke test: the headline analysis on the synthetic inputs, at a low iteration count.
+# With SYNTH_RHO=0 every dimension should be non-significant; set SYNTH_RHO=0.6 and
+# rerun `make synthetic` first to check that the pipeline detects a known signal.
+synthetic-check: synthetic
+	$(PYTHON) scripts/analysis/ensemble_permutation_groupkfold.py \
+	  --datasets_dir $(SYNTH_DIR)/datasets \
+	  --metadata_tsv $(SYNTH_DIR)/synthetic_speaker_metadata.tsv \
+	  --include_confounds \
+	  --out_tsv $(SYNTH_DIR)/results/ensemble_summary_modelB.tsv \
+	  --alpha 100 --cv_folds 5 --n_perm 200 --seed $(SEED)

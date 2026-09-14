@@ -58,6 +58,7 @@ scripts/
   baseline/        three-condition baseline validation
   dose_response/   feature manipulation experiment
   paper_figs/      figure and table generation
+  synthetic/       structural stand-in for the inputs, from published statistics only
 tests/             unit and property-based tests (no corpus needed)
 docs/              methods documentation
 reports/
@@ -81,6 +82,19 @@ make help        # every pipeline target
 Reproducing the analyses requires the CEJC corpus. Reproducing the model scoring
 additionally requires AWS credentials and incurs Bedrock charges; no `make`
 target starts a scoring run, so that step is always explicit.
+
+Without the corpus you can still run the whole pipeline:
+
+```bash
+make synthetic        # a dataset of the same shape, from published statistics only
+make synthetic-check  # the headline analysis on it
+```
+
+The licence does not permit redistributing the feature matrix or the trait scores, so
+`artifacts/synthetic/` stands in for them. It does not reproduce the reported results and
+is not meant to — by default its outcome is independent of the features, so every test
+comes out non-significant, which is how you confirm the pipeline runs and the null case
+behaves. See [docs/data-availability.md](docs/data-availability.md).
 
 ## Requirements
 

@@ -14,7 +14,9 @@ abstract: >-
   and baseline conditions that test whether the language-model scores depend on
   the transcript content. Correlation, coefficient of determination and RMSE are
   reported together, since ridge shrinkage makes a correlation alone a weak
-  summary of fit.
+  summary of fit. A synthetic dataset built from published summary statistics only
+  is included so that the pipeline can be run without the corpus; it does not
+  reproduce the reported results.
 version: 1.2.0
 date-released: "2026-09-14"
 type: software

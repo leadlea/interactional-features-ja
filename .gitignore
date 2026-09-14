@@ -10,6 +10,18 @@ artifacts/**
 !artifacts/README.md
 !artifacts/.gitkeep
 
+# Exception: the synthetic dataset. It is built from published summary statistics only
+# (the descriptive-statistics and correlation tables in reports/, plus record counts
+# stated in the manuscript), so it is not derived data under the CEJC agreement and can
+# be archived. It is tracked so that a download of this repository can run the pipeline
+# without the corpus. Regenerate with `make synthetic`.
+!artifacts/synthetic/
+!artifacts/synthetic/PROVENANCE.json
+!artifacts/synthetic/synthetic_features.parquet
+!artifacts/synthetic/synthetic_speaker_metadata.tsv
+!artifacts/synthetic/datasets/
+!artifacts/synthetic/datasets/*.parquet
+
 data/**
 !data/README.md
 

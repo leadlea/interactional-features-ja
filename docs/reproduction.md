@@ -121,6 +121,23 @@ The script prints how many records were lost on each side of the join. The
 reported analyses use all 120, so any loss here needs explaining before moving
 on.
 
+## Running without the corpus
+
+Steps 1 to 6 need the CEJC corpus and step 4 needs paid model scoring. To check that the
+analysis code runs before arranging either, build the synthetic stand-in and go straight to
+step 7:
+
+```bash
+make synthetic          # artifacts/synthetic/, from published statistics only
+make synthetic-check    # the headline analysis on it, at a low iteration count
+```
+
+Every dimension should come out non-significant, because the synthetic outcome is drawn
+independently of the features. `make synthetic SYNTH_RHO=0.6` injects an association of
+known strength if you want to see the pipeline detect one. Neither mode reproduces the
+reported results; see [data-availability.md](data-availability.md) for what the synthetic
+data is and is not.
+
 ## Step 7 — run the analyses
 
 ```bash
