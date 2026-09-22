@@ -779,9 +779,10 @@ def gen_fig_teacher_heatmap(out_dir: Path) -> None:
     # Expand x-axis to make room for the mean r annotation (avoid colorbar overlap)
     ax.set_xlim(-0.5, len(TEACHERS) - 0.5 + 3.0)
 
-    ax.set_title("Inter-Teacher Agreement (per-teacher mean r)",
+    # Same as above. The caption reads "Mean agreement between models".
+    ax.set_title("Between-Model Agreement (per-model mean r)",
                  fontsize=12, fontweight="bold", pad=12)
-    ax.set_xlabel("Teacher (LLM)", fontsize=12)
+    ax.set_xlabel("Language model", fontsize=12)
     ax.set_ylabel("Trait", fontsize=12)
 
     # Colorbar
@@ -876,8 +877,12 @@ def gen_fig_teacher_corr_matrix(results_dir: Path, out_dir: Path) -> None:
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=ax_cb, fraction=0.6, pad=0.05, label="Pearson r")
 
+    # The text baked into the figure matches the manuscript's caption,
+    # "Agreement between models". "Teacher" was the earlier name for the virtual
+    # rater; the manuscript now says "language model" and "virtual Big5 score", so
+    # the rendered strings drop it too. Variable names are internal and stay.
     fig.suptitle(
-        "Inter-Teacher Pearson Correlation\n(4 LLM Teachers × 5 Traits)",
+        "Between-Model Pearson Correlation\n(4 Language Models × 5 Traits)",
         fontsize=14,
         fontweight="bold",
         y=0.98,
