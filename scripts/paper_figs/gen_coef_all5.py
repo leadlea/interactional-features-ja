@@ -11,19 +11,20 @@ requires a five-dimension version, which this script generates.
 
 Inputs
 ------
-``artifacts/analysis/results/coef_bootstrap_all5/``
-  - ``permutation_coef_{trait}_ensemble.tsv``   (19 features, alpha=100, 5,000 permutations)
-  - ``bootstrap_variance_{trait}_ensemble.tsv`` (19 features, alpha=100, 500 bootstrap resamples)
-Produced by ``bash scripts/analysis/run_coef_bootstrap_all5.sh``.
+``artifacts/analysis/results/coef_bootstrap_all5_modelb/``
+  - ``permutation_coef_{trait}_ensemble.tsv``   (21 predictors, alpha=100, 5,000 permutations)
+  - ``bootstrap_variance_{trait}_ensemble.tsv`` (21 predictors, alpha=100, 500 bootstrap resamples)
+Produced by ``bash scripts/analysis/run_coef_bootstrap_all5_modelb.sh``.
 
 Outputs (``reports/paper_figs_v2/``)
 ------------------------------------
-- ``tab_coef_all5.tex``        Main text. Regression coefficients, 19 features x 5 dimensions.
-                               ``*`` marks a *concordant feature* (permutation p<0.05 AND a
-                               bootstrap 95% CI excluding zero); ``\dagger`` marks a feature
-                               satisfying only one of the two.
-- ``tab_coef_all5_detail.tex`` Appendix. Full beta / p / 95% CI per dimension (longtable).
-- ``fig_coef_all5.png``        Coefficient plot, five stacked panels (beta +/- 95% CI).
+- ``tab_coef_all5.tex``          Main text. Regression coefficients, 19 features x 5 dimensions.
+                                 ``*`` marks a *dually supported feature* (permutation p<0.05 AND
+                                 a bootstrap 95% CI excluding zero); ``\dagger`` marks a feature
+                                 satisfying only one of the two.
+- ``tab_coef_all5_detail.tex``   Appendix. Full beta / p / 95% CI per dimension (longtable).
+- ``tab_criterion_counts.tex``   Appendix. How many features each decision rule identifies.
+- ``fig_coef_all5.png``          Coefficient plot, one row of five panels (beta +/- 95% CI).
 
 An ``_en`` twin of each table is written as well, for the English manuscript.
 
@@ -41,9 +42,9 @@ import pandas as pd
 
 TRAITS = ["O", "C", "E", "A", "N"]
 
-# Same order as the feature definition table (Classical 10 then Novel 9).
-# Must match the order in tab_feature_definitions.tex exactly:
-# the captions state that the ordering is shared with that table.
+# Same order as Table 1 (Classical 10 -> Novel 9), fixed across every dimension and
+# every figure. It must match the order in tab_feature_definitions.tex exactly,
+# because the manuscript's captions state that the two share an ordering.
 FEATURE_ORDER = [
     "PG_speech_ratio", "PG_pause_mean", "PG_pause_p50", "PG_pause_p90",
     "PG_resp_gap_mean", "PG_resp_gap_p50", "PG_resp_gap_p90",
@@ -62,13 +63,46 @@ NOVEL_FEATURES = {
     "PG_pause_variability",
 }
 
+# Descriptive names for the figure's axis labels. The figure uses these rather than
+# the implementation identifiers (PG_speech_ratio and so on); the identifiers appear
+# only in Table 1 and the appendices. Same content as Table 1's description column.
+FEATURE_LABELS_EN = {
+    "PG_speech_ratio": "Speech ratio",
+    "PG_pause_mean": "Pause length (mean)",
+    "PG_pause_p50": "Pause length (median)",
+    "PG_pause_p90": "Pause length (p90)",
+    "PG_resp_gap_mean": "Response gap (mean)",
+    "PG_resp_gap_p50": "Response gap (median)",
+    "PG_resp_gap_p90": "Response gap (p90)",
+    "FILL_has_any": "Filler-bearing utterance rate",
+    "FILL_rate_per_100chars": "Filler rate per 100 characters",
+    "PG_overlap_rate": "Overlap rate",
+    "IX_oirmarker_rate": "Repair initiation (OIR) rate",
+    "IX_oirmarker_after_question_rate": "OIR rate after a question",
+    "IX_yesno_rate": "Yes/no response rate",
+    "IX_yesno_after_question_rate": "Yes/no rate after a question",
+    "IX_lex_overlap_mean": "Lexical overlap",
+    "RESP_NE_AIZUCHI_RATE": "Backchannel rate after $\\it{ne}$",
+    "RESP_NE_ENTROPY": "Response diversity after $\\it{ne}$",
+    "RESP_YO_ENTROPY": "Response diversity after $\\it{yo}$",
+    "PG_pause_variability": "Pause length variability",
+}
+
+# Palette. Using hue for the sign of a coefficient collides with the reader's prior
+# that red means positive and blue negative, so hue carries no meaning here: shade
+# and line weight mark whether a feature is dually supported, and the sign is read
+# from which side of the zero line the interval falls on. This also survives
+# monochrome printing.
+COLOR_SUPPORTED = "#1f3864"   # dark navy: supported by both procedures
+COLOR_OTHER = "#b3b3b3"       # light grey: everything else
+
 
 def tex_escape_feature(name: str) -> str:
     return name.replace("_", r"\_")
 
 
 def load_all5(results_dir: Path) -> dict[str, pd.DataFrame]:
-    """trait -> DataFrame indexed by feature, with coef/p/bootstrap columns."""
+    """trait -> DataFrame(index=feature, cols=coef_obs,p_value,coef_mean,sd,ci_lo,ci_hi,both)."""
     out: dict[str, pd.DataFrame] = {}
     for trait in TRAITS:
         p_path = results_dir / f"permutation_coef_{trait}_ensemble.tsv"
@@ -106,10 +140,14 @@ def gen_tab_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path,
     that the English manuscript cites the same numbers. Same convention as
     tab_feature_definitions_en.tex.
     """
+    # The summary row's label has to match what the manuscript calls these features.
+    # The caption speaks of "the number of dually supported features", so the row
+    # label says the same thing; "concordant" is not used, because the name does not
+    # say what agrees with what.
     L = {
-        "ja": {"feat": "特徴量", "n_conc": "一致特徴量数",
+        "ja": {"feat": "特徴量", "n_conc": "両手法支持特徴量数",
                "n_novel": "\\quad うち新規（Novel）"},
-        "en": {"feat": "Feature", "n_conc": "Concordant features",
+        "en": {"feat": "Feature", "n_conc": "Dually supported features",
                "n_novel": "\\quad of which novel"},
     }[lang]
     lines: list[str] = []
@@ -125,7 +163,7 @@ def gen_tab_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path,
             cells.append(s)
         lines.append(f"{tex_escape_feature(feat)} & " + " & ".join(cells) + r" \\")
 
-    # Append per-dimension counts of concordant features as summary rows
+    # Append per-dimension counts of dually supported features as summary rows
     n_both = [int(data[t]["both"].sum()) for t in TRAITS]
     n_novel = [
         int((data[t]["both"] & pd.Series({f: f in NOVEL_FEATURES for f in FEATURE_ORDER})).sum())
@@ -151,6 +189,54 @@ def gen_tab_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path,
     )
     suffix = "" if lang == "ja" else "_en"
     path = out_dir / f"tab_coef_all5{suffix}.tex"
+    path.write_text(latex, encoding="utf-8")
+    print(f"wrote {path}")
+
+
+def gen_tab_criterion_counts(data: dict[str, pd.DataFrame], out_dir: Path,
+                             lang: str = "ja") -> None:
+    """Appendix table: how many features each decision rule identifies.
+
+    The manuscript requires both procedures to agree. Taking either one alone is a
+    looser rule and identifies more features, so this table discloses the count
+    under each of the three rules and makes the effect of the rule's stringency
+    visible instead of leaving the reader to wonder why a count changed.
+    """
+    L = {
+        "ja": {
+            "dim": "次元", "perm": "置換検定のみ", "boot": "Bootstrapのみ",
+            "both": "両方（本文の判定）", "total": "計",
+        },
+        "en": {
+            "dim": "Dimension", "perm": "Permutation only", "boot": "Bootstrap only",
+            "both": "Both (criterion used)", "total": "Total",
+        },
+    }[lang]
+    rows: list[str] = []
+    tot = [0, 0, 0]
+    for trait in TRAITS:
+        df = data[trait]
+        n_p = int(df["perm_sig"].sum())
+        n_b = int(df["boot_sig"].sum())
+        n_both = int(df["both"].sum())
+        tot[0] += n_p
+        tot[1] += n_b
+        tot[2] += n_both
+        rows.append(f"{trait} & {n_p} & {n_b} & {n_both} \\\\")
+
+    latex = (
+        "\\begin{tabular}{lrrr}\n"
+        "\\toprule\n"
+        f"{L['dim']} & {L['perm']} & {L['boot']} & {L['both']} \\\\\n"
+        "\\midrule\n"
+        + "\n".join(rows) + "\n"
+        "\\midrule\n"
+        f"{L['total']} & {tot[0]} & {tot[1]} & {tot[2]} \\\\\n"
+        "\\bottomrule\n"
+        "\\end{tabular}\n"
+    )
+    suffix = "" if lang == "ja" else "_en"
+    path = out_dir / f"tab_criterion_counts{suffix}.tex"
     path.write_text(latex, encoding="utf-8")
     print(f"wrote {path}")
 
@@ -227,20 +313,40 @@ def gen_tab_coef_all5_detail(data: dict[str, pd.DataFrame], out_dir: Path,
 
 
 def gen_fig_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path) -> None:
-    """Coefficient plot for the five dimensions (stacked panels, features on x).
+    r"""Coefficient forest plot: features on the y axis, O/C/E/A/N across five columns.
 
     Layout rationale
     ----------------
-    A wide single-row layout with five panels and the features on the y axis was
-    tried first, rotated 90 degrees to fit the page. At a text width of roughly
-    12.3 cm that scales the figure to about 0.35, which makes the axis labels
-    illegible; rotating fixed legibility but left all the text sideways.
+    A stacked layout (five rows, features on the x axis) was tried first. Each panel
+    then comes out wide and short, which flattens the confidence intervals and makes
+    the 19 features x 5 dimensions hard to compare.
 
-    The stacked layout (five rows, features on the x axis) avoids both problems:
-    (1) no rotation, so all text is upright;
-    (2) the 19 feature labels appear once, on the bottom panel, which buys back
-        scale; and
-    (3) reading down a single x position compares one feature across dimensions.
+    So the layout is a one-row, five-column forest plot with the features on the y
+    axis. Unlike an earlier attempt, it is not rotated 90 degrees with \rotatebox:
+    the figure is placed on its own page and set at width=\linewidth, which keeps
+    every label upright while still buying back scale.
+
+    Size
+    ----
+    The English manuscript's text width is 453pt; the other figures are set between
+    0.82\linewidth and \linewidth, so this one stays at \linewidth rather than
+    spilling into the 1in margins BRM requires. Holding the canvas to 6.8in puts the
+    scale factor near 0.83, so an 8.5pt axis label reads at about 7pt on the page.
+    The x-axis label is drawn once for the whole figure rather than five times, which
+    returns that width to the panels.
+
+    Palette
+    -------
+    Hue is not used to carry meaning, because red-for-positive collides with the
+    reader's prior. Dually supported features are dark navy with a thick line and a
+    filled marker; the rest are light grey with a thin line and an open marker. The
+    sign is read from which side of the zero line an interval falls on. Line weight
+    and marker fill keep the distinction in monochrome print.
+
+    Axis labels
+    -----------
+    Descriptive names (FEATURE_LABELS_EN), not implementation identifiers. The
+    identifiers appear only in Table 1 and the appendices.
     """
     import matplotlib
     matplotlib.use("Agg")
@@ -248,56 +354,71 @@ def gen_fig_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path) -> None:
     from matplotlib.lines import Line2D
 
     n = len(FEATURE_ORDER)
-    # Text width is about 12.3 cm = 4.85 in. Keep the aspect ratio near 0.74 so the
-    # figure fits the page height when included at the full text width.
-    fig, axes = plt.subplots(len(TRAITS), 1, figsize=(5.6, 7.5), sharex=True)
+
+    fig, axes = plt.subplots(
+        1, len(TRAITS), figsize=(6.8, 5.6), sharey=True,
+        gridspec_kw={"wspace": 0.16},
+    )
 
     lo = min(data[t]["ci_lower"].min() for t in TRAITS)
     hi = max(data[t]["ci_upper"].max() for t in TRAITS)
-    pad = 0.12 * (hi - lo)
+    pad = 0.10 * (hi - lo)
 
     for ax, trait in zip(axes, TRAITS):
         df = data[trait]
-        ax.axhline(y=0, color="#999999", linewidth=0.9, linestyle="--", zorder=1)
+        ax.axvline(x=0, color="#8c8c8c", linewidth=0.7, linestyle="--", zorder=1)
+
         for i, feat in enumerate(FEATURE_ORDER):
             r = df.loc[feat]
             both = bool(r["both"])
-            color = "#2166ac" if both else "#b2182b"
+            color = COLOR_SUPPORTED if both else COLOR_OTHER
             ax.plot(
-                [i, i], [r["ci_lower"], r["ci_upper"]],
-                color=color, linewidth=2.0 if both else 1.3,
-                alpha=1.0 if both else 0.5, zorder=2,
+                [r["ci_lower"], r["ci_upper"]], [i, i],
+                color=color, linewidth=1.9 if both else 0.9,
+                solid_capstyle="round", zorder=2,
             )
             ax.scatter(
-                i, r["coef_mean"], color=color, s=26 if both else 14,
-                edgecolors="white", linewidths=0.4, zorder=3,
+                r["coef_mean"], i,
+                s=15 if both else 8,
+                facecolors=color if both else "white",
+                edgecolors=color, linewidths=0.7,
+                zorder=3,
             )
-        ax.set_ylim(lo - pad, hi + pad)
-        ax.set_xlim(-0.7, n - 0.3)
-        # Keep the dimension label upright rather than rotated, for legibility
-        ax.set_ylabel(trait, fontsize=11, fontweight="bold", rotation=0,
-                      labelpad=14, va="center")
-        ax.tick_params(axis="y", labelsize=6.5)
+
+        ax.set_xlim(lo - pad, hi + pad)
+        ax.set_ylim(n - 0.5, -0.5)  # top to bottom in FEATURE_ORDER
+        ax.set_title(trait, fontsize=11, fontweight="bold", pad=5)
+        ax.set_xticks([-0.05, 0.0, 0.05])
+        ax.set_xticklabels(["$-$.05", "0", ".05"], fontsize=6.5)
+        ax.tick_params(axis="x", length=2, pad=1.5)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.tick_params(axis="y", length=0)
 
-    axes[-1].set_xticks(np.arange(n))
-    axes[-1].set_xticklabels(FEATURE_ORDER, rotation=90, fontsize=6.5)
-    fig.text(0.005, 0.55, "Ridge coefficient (mean $\\pm$ 95% CI)",
-             rotation=90, va="center", fontsize=8)
+    axes[0].set_yticks(np.arange(n))
+    axes[0].set_yticklabels([FEATURE_LABELS_EN[f] for f in FEATURE_ORDER], fontsize=8.5)
+
+    # One x-axis label for the whole figure
+    fig.supxlabel("Ridge coefficient (mean $\\pm$ 95% CI)", fontsize=8.5, y=0.055)
+
+    # No Classical / Novel divider is drawn. Only the layout and the palette changed;
+    # every other element is kept as it was in the previous version of the figure.
 
     legend_handles = [
-        Line2D([0], [0], color="#2166ac", linewidth=2.0, marker="o",
-               markerfacecolor="#2166ac", markersize=5,
-               label="permutation $p<0.05$ and bootstrap 95%CI excludes zero"),
-        Line2D([0], [0], color="#b2182b", linewidth=1.3, marker="o",
-               markerfacecolor="#b2182b", markersize=4, alpha=0.5,
-               label="otherwise"),
+        Line2D([0], [0], color=COLOR_SUPPORTED, linewidth=2.0, marker="o",
+               markerfacecolor=COLOR_SUPPORTED, markeredgecolor=COLOR_SUPPORTED,
+               markersize=4.5,
+               label="supported by both procedures "
+                     "(permutation $p<.05$ and bootstrap 95% CI excluding zero)"),
+        Line2D([0], [0], color=COLOR_OTHER, linewidth=1.0, marker="o",
+               markerfacecolor="white", markeredgecolor=COLOR_OTHER, markersize=3.8,
+               label="not supported by both procedures"),
     ]
-    fig.legend(handles=legend_handles, loc="lower center", ncol=1, fontsize=6.5,
-               frameon=False, bbox_to_anchor=(0.55, -0.005))
+    fig.legend(handles=legend_handles, loc="lower center", ncol=1, fontsize=7,
+               frameon=False, bbox_to_anchor=(0.55, -0.035))
 
-    fig.tight_layout(rect=(0.03, 0.035, 1, 1))
+    fig.tight_layout(rect=(0, 0.075, 1, 1))
     path = out_dir / "fig_coef_all5.png"
     fig.savefig(path, dpi=600, bbox_inches="tight")
     plt.close(fig)
@@ -305,7 +426,7 @@ def gen_fig_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path) -> None:
 
 
 def print_summary(data: dict[str, pd.DataFrame]) -> None:
-    print("\n=== Concordant features (permutation p<0.05 and bootstrap CI excluding zero) ===")
+    print("\n=== Dually supported (permutation p<0.05 and bootstrap CI excluding zero) ===")
     for trait in TRAITS:
         df = data[trait]
         both = df[df["both"]]
@@ -335,6 +456,7 @@ def main():
     for lang in ("ja", "en"):
         gen_tab_coef_all5(data, out_dir, lang=lang)
         gen_tab_coef_all5_detail(data, out_dir, lang=lang)
+        gen_tab_criterion_counts(data, out_dir, lang=lang)
     gen_fig_coef_all5(data, out_dir)
     print_summary(data)
 

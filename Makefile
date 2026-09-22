@@ -357,6 +357,9 @@ figures:
 	  --out_dir $(FIG_DIR)
 	$(PYTHON) scripts/paper_figs/gen_tab_baseline_conditions.py \
 	  --tsv $(BL_COND_MB_TSV) --out_dir $(FIG_DIR)
+	@# Appendix J. Formats the power JSON only; `make power` computes it.
+	$(PYTHON) scripts/paper_figs/gen_tab_power_design.py \
+	  --json $(POWER_MB_JSON) --out_dir $(FIG_DIR)
 
 slides:
 	$(PYTHON) scripts/paper_figs/gen_kamishibai_slides.py
