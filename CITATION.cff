@@ -23,6 +23,16 @@ date-released: "2026-09-22"
 type: software
 license: MIT
 repository-code: "https://github.com/leadlea/interactional-features-ja"
+# The version DOI (this release). The concept DOI, 10.5281/zenodo.22888170,
+# always resolves to the latest release and is the one in the README badge.
+doi: "10.5281/zenodo.22888171"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.22888171"
+    description: "Version DOI for v1.3.0 (the release the manuscript cites)"
+  - type: doi
+    value: "10.5281/zenodo.22888170"
+    description: "Concept DOI for all versions"
 authors:
   - family-names: "Fukuhara"
     given-names: "Gen"

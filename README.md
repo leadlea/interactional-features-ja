@@ -1,5 +1,7 @@
 # interactional-features-ja
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22888170.svg)](https://doi.org/10.5281/zenodo.22888170)
+
 Reproducible measurement of **19 interactional features** from Japanese everyday
 conversation, and the analyses that validate them.
 
@@ -127,6 +129,17 @@ depend on the estimator implementation.
 
 See [CITATION.cff](CITATION.cff). Please cite the manuscript once published; this
 repository can be cited alongside it for the implementation.
+
+Each release is archived on Zenodo, which mints two DOIs. They are not
+interchangeable:
+
+| DOI | Resolves to | Use for |
+|---|---|---|
+| [10.5281/zenodo.22888170](https://doi.org/10.5281/zenodo.22888170) | whichever release is latest | the badge above, citing the project in general |
+| [10.5281/zenodo.22888171](https://doi.org/10.5281/zenodo.22888171) | v1.3.0 specifically | reproducing the reported numbers |
+
+The manuscript cites the version DOI, because a reader has to be able to reach the
+exact code that produced the values in the article.
 
 ## License
 
