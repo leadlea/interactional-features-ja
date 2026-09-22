@@ -88,7 +88,7 @@ python scripts/big5/merge_teacher_scores.py \
   --expected_records 120
 ```
 
-## Step 5 — extract the interaction features
+## Step 5 — extract the interactional features
 
 ```bash
 make features
@@ -200,11 +200,12 @@ make coefficients-all5 N_PERM=50 N_BOOT=20
 make figures
 ```
 
-Overwrites `reports/paper_figs_v2/` with the 8 figures and 11 LaTeX tables the
+Overwrites `reports/paper_figs_v2/` with the 8 figures and 13 LaTeX tables the
 manuscript uses, plus the English-caption twin of every table that has Japanese
 labels. The generators read the `*_modelB` result paths, so `make analysis` (or at
-least `permutation-groupkfold`, `coefficients-all5`, `sensitivity-alpha` and
-`baseline-conditions`) has to run first. Which figure comes from which script and which result file is tabulated in
+least `permutation-groupkfold`, `coefficients-all5`, `sensitivity-alpha`, `power`
+and `baseline-conditions`) has to run first. Which figure comes from which script
+and which result file is tabulated in
 [figure-source-map.md](figure-source-map.md).
 
 Each file has exactly one generator, so the order does not matter and no step
@@ -225,11 +226,14 @@ make verify-consistency  # cross-checks between analyses that should agree
 ```
 
 `verify` writes `artifacts/analysis/results/reproducibility_check.tsv` with one
-row per checked value and a match flag. It covers the main-result r and
-Holm-corrected p for all five dimensions, the concordant feature set named for
-each dimension, the plain-KFold values the appendix compares against, and the
-between-model agreement. Expected values are transcribed from the manuscript and
-compared at the precision the manuscript prints.
+row per checked value and a match flag. It covers every value the headline table
+prints for all five dimensions (fold-averaged r, Holm-corrected p, pooled
+out-of-fold r, R² and RMSE), the dually supported feature set named for each
+dimension, the count under each decision rule, the plain-KFold values the appendix
+compares against, the a priori power values, and the between-model agreement — 59
+checks in total. Expected values are transcribed from the manuscript and compared
+at the precision the manuscript prints. It reads the 21-predictor (`*_modelB` /
+`*_modelb`) result paths, so `make analysis` has to have run first.
 
 `verify-consistency` covers two places where the same quantity is computed
 differently — the staged comparison's Stage 3 correlation versus the

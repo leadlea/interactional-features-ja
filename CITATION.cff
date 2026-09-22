@@ -8,17 +8,18 @@ abstract: >-
   accompanying manuscript. All five trait dimensions are analysed at equal
   granularity: Ridge regression over the 19 features plus speaker sex and age,
   under a subject-wise GroupKFold split, permutation tests with Holm correction,
-  coefficient-level permutation tests combined with bootstrap stability,
+  coefficient-level permutation tests combined with bootstrap stability, a
+  disclosure of how many features each decision rule identifies,
   sensitivity analyses over preprocessing, regularisation strength and
-  cross-validation choices, an estimate of the design's detectable effect size,
-  and baseline conditions that test whether the language-model scores depend on
-  the transcript content. Correlation, coefficient of determination and RMSE are
+  cross-validation choices, an a priori estimate of the effect size the design can
+  detect, and baseline conditions that test whether the language-model scores depend
+  on the transcript content. Correlation, coefficient of determination and RMSE are
   reported together, since ridge shrinkage makes a correlation alone a weak
   summary of fit. A synthetic dataset built from published summary statistics only
   is included so that the pipeline can be run without the corpus; it does not
   reproduce the reported results.
-version: 1.2.0
-date-released: "2026-09-14"
+version: 1.3.0
+date-released: "2026-09-22"
 type: software
 license: MIT
 repository-code: "https://github.com/leadlea/interactional-features-ja"

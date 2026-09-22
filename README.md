@@ -62,7 +62,7 @@ scripts/
 tests/             unit and property-based tests (no corpus needed)
 docs/              methods documentation
 reports/
-  paper_figs_v2/   the manuscript's 8 figures and 11 LaTeX tables; tables with
+  paper_figs_v2/   the manuscript's 8 figures and 13 LaTeX tables; tables with
                    Japanese labels also have an `_en` twin written in the same run,
                    for the English version. Also holds kamishibai_slides.html, a
                    nine-slide walkthrough of the study written in Japanese
@@ -109,16 +109,17 @@ depend on the estimator implementation.
 - Seeds are passed explicitly (`SEED=42`); iteration counts (`N_PERM=5000`,
   `N_BOOT=500`) are Makefile variables and match the manuscript.
 - `make verify` compares the values reported in the manuscript against the result
-  files and writes a per-value match report: the main-result r and Holm-corrected
-  p for all five dimensions, the concordant feature set per dimension, the
-  plain-KFold values the appendix compares against, and the between-model
-  agreement. Its expected values are still the 19-predictor ones, so the five
-  main-result rows currently report a mismatch until they are updated to the
-  21-predictor model.
+  files and writes a per-value match report (59 checks): every value the headline
+  table prints for all five dimensions (fold-averaged r, Holm-corrected p, pooled
+  out-of-fold r, R² and RMSE), the dually supported feature set per dimension, the
+  count under each decision rule, the plain-KFold values the appendix compares
+  against, the a priori power values, and the between-model agreement. It reads the
+  21-predictor result paths, matching the reported model.
 - `make power` reports what magnitude of association this design can detect: under
   the null the fold-averaged r has SD = 0.128, giving a two-sided 5% critical value
   of r = 0.250, and power reaches 50% at rho = 0.349 and 80% at rho = 0.438. This is
   the sensitivity of the design, not post hoc power from an observed effect size.
+  `make figures` turns the same JSON into the appendix table.
 - Model endpoints are not version-frozen by the provider, so re-scoring may not
   return identical values. Everything downstream of fixed inputs does.
 

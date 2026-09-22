@@ -28,12 +28,12 @@ under [hand-entered values](#hand-entered-values).
 | `tab:metadata_tests` | table | sex (Mann-Whitney U) and age (Spearman rho) | `gen_paper_figs_v2.py::gen_tab_metadata_tests` | features parquet + `cejc_speaker_metadata.tsv` | tests run inside the generator, pairwise deletion |
 | `tab:ensemble_perm` | table | **main result**: permutation test, five traits, subject-wise split, 21 predictors; reports fold-averaged r, pooled out-of-fold r, R², RMSE, raw p and corrected p | `gen_main_result_groupkfold.py` | `ensemble_perm_groupkfold_modelB/ensemble_summary_modelB.tsv` | `ensemble_permutation_groupkfold.py --include_confounds` |
 | `fig:predicted_vs_observed` | figure | observed vs out-of-fold predicted, five panels, 21 predictors | `gen_main_result_groupkfold.py` | same summary TSV + `datasets/cejc_home2_hq1_XY_{trait}only_ensemble.parquet` + `cejc_speaker_metadata.tsv` | same |
-| `tab:coef_all5` | table | coefficients, 19 features x 5 dimensions, concordance marks; sex and age listed separately at the foot | `gen_coef_all5.py` | `coef_bootstrap_all5_modelb/permutation_coef_{trait}_ensemble.tsv` + `bootstrap_variance_{trait}_ensemble.tsv` | `run_coef_bootstrap_all5_modelb.sh` (`permutation_coef_test.py`, `bootstrap_variance.py`, both with `--include_confounds`) |
-| `fig:coef_all5` | figure | coefficient plot, five stacked panels, beta ± 95% CI | `gen_coef_all5.py` | same | same |
+| `tab:coef_all5` | table | coefficients, 19 features x 5 dimensions, dual-support marks; sex and age listed separately at the foot | `gen_coef_all5.py` | `coef_bootstrap_all5_modelb/permutation_coef_{trait}_ensemble.tsv` + `bootstrap_variance_{trait}_ensemble.tsv` | `run_coef_bootstrap_all5_modelb.sh` (`permutation_coef_test.py`, `bootstrap_variance.py`, both with `--include_confounds`) |
+| `fig:coef_all5` | figure | coefficient forest plot, one row of five panels, beta ± 95% CI | `gen_coef_all5.py` | same | same |
 
 A feature is marked `*` in `tab:coef_all5` only when the permutation test and the
-bootstrap interval agree (a *concordant feature*); `\dagger` marks a feature that
-satisfies one of the two. The rule is stated in
+bootstrap interval agree (a *dually supported feature*); `\dagger` marks a feature
+that satisfies one of the two. The rule is stated in
 [evaluation-design.md](evaluation-design.md#which-features-carry-the-association)
 and implemented once, in `gen_coef_all5.py`.
 
@@ -46,11 +46,13 @@ and implemented once, in `gen_coef_all5.py`.
 | `fig:metadata_age` | figure | features by age | `gen_paper_figs_v2.py::gen_metadata_age` | same | same |
 | `tab:coef_all5_detail` | table | full beta / p / 95% CI per dimension (longtable) | `gen_coef_all5.py` | `coef_bootstrap_all5_modelb/` | `run_coef_bootstrap_all5_modelb.sh` |
 | `tab:sensitivity_alpha` | table | alpha grid x five dimensions, Holm-corrected | `gen_sensitivity_tables.py` | `ensemble_perm_groupkfold_modelB/sensitivity_alpha_modelB.tsv` | `ensemble_permutation_groupkfold.py --include_confounds --alpha_sweep` |
+| `tab:criterion_counts` | table | features identified under each decision rule (permutation only / bootstrap only / both) | `gen_coef_all5.py` | `coef_bootstrap_all5_modelb/` | `run_coef_bootstrap_all5_modelb.sh` |
 | `tab:cv_sensitivity` | table | KFold vs GroupKFold | `gen_sensitivity_tables.py` | `groupkfold_vs_kfold_all_nperm5000.tsv` + the GroupKFold summary TSV | `groupkfold_all.py --n_perm 5000` |
 | `fig:teacher_corr_matrix_appendix` | figure | 4x4 model correlation matrix | `gen_paper_figs_v2.py::gen_fig_teacher_corr_matrix` | `reports/model_agreement/teacher_corr_{trait}.tsv` | `teacher_agreement_big5.py` |
 | `fig:teacher_heatmap` | figure | mean between-model agreement | `gen_paper_figs_v2.py::gen_fig_teacher_heatmap` | same | same |
 | `tab:perm_all` | table | permutation test per model, ordered O,C,E,A,N | `gen_sensitivity_tables.py` | `groupkfold_vs_kfold_all_nperm5000.tsv` | `groupkfold_all.py --n_perm 5000` |
 | `tab:baseline_conditions` | table | three-condition baseline, subject-wise split, 21 predictors | `gen_tab_baseline_conditions.py` | `baseline_validation/baseline_conditions_modelB.tsv` | `baseline_conditions_groupkfold.py --include_confounds` |
+| `tab:power_design` | table | a priori power of the design at nine levels of the population multiple correlation | `gen_tab_power_design.py` | `power_analysis_design_modelB.json` | `power_analysis_design.py --include_confounds` |
 
 ## Japanese and English twins
 
@@ -63,9 +65,10 @@ so the two versions cannot drift numerically:
 |---|---|
 | `gen_paper_figs_v2.py::gen_tab_feature_definitions` | `tab_feature_definitions_en.tex` |
 | `gen_main_result_groupkfold.py` | `tab_ensemble_permutation_en.tex` |
-| `gen_coef_all5.py` | `tab_coef_all5_en.tex`, `tab_coef_all5_detail_en.tex` |
+| `gen_coef_all5.py` | `tab_coef_all5_en.tex`, `tab_coef_all5_detail_en.tex`, `tab_criterion_counts_en.tex` |
 | `gen_sensitivity_tables.py` | `tab_sensitivity_alpha_en.tex`, `tab_cv_sensitivity_en.tex`, `tab_permutation_all_en.tex` |
 | `gen_tab_baseline_conditions.py` | `tab_baseline_conditions_en.tex` |
+| `gen_tab_power_design.py` | `tab_power_design_en.tex` |
 
 Three generated tables (`tab_descriptive_stats_full`, `tab_metadata_tests`,
 `tab_corr_matrix`) and all eight figures need no twin: their labels, axis titles
@@ -76,8 +79,9 @@ and legends are already English, and the only data-derived labels are gender
 
 Two sets of values are typed into the manuscript rather than generated. When
 any of them change, the files below are authoritative and the text has to be
-updated by hand. Neither is covered by `make verify`, which checks
-the main-result values, the concordant feature sets, the KFold comparison and the
+updated by hand. Neither is covered by `make verify`, which checks the headline
+table's five values per dimension, the dually supported feature sets, the count
+under each decision rule, the KFold comparison, the a priori power values and the
 between-model agreement; extending it to these is an open item.
 
 | Where | Content | Source data | Upstream |
