@@ -88,7 +88,7 @@ def extract_features(
     target_pairs: set | None,
     gap_tol: float = 0.05,
 ) -> pd.DataFrame:
-    """Extract interaction features from utterances DataFrame.
+    """Extract interactional features from utterances DataFrame.
 
     Args:
         utterances_df: DataFrame with columns conversation_id, speaker_id, text,

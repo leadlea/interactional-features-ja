@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Join the interaction features (X) with a trait score (Y) into one analysis table.
+Join the interactional features (X) with a trait score (Y) into one analysis table.
 
 X comes from extract_interaction_features_min.py, Y from the merged model scores.
 The join is an inner join on (conversation_id, speaker_id): a record survives

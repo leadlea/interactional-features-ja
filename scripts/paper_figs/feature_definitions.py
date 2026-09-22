@@ -1,4 +1,4 @@
-"""19 interaction feature definitions + EXCL3 control variables.
+"""19 interactional feature definitions + EXCL3 control variables.
 
 Derived from ``scripts/analysis/extract_interaction_features_min.py``.
 Each entry documents name, category, summary, algorithm, and whether

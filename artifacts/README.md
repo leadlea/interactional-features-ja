@@ -17,7 +17,7 @@ artifacts/
 │   └── cejc_utterances/part-00000.parquet   # utterance table
 ├── analysis/
 │   ├── target_pairs/                    # step 1  HQ1 sample
-│   ├── features_min/                    # step 5  19 interaction features
+│   ├── features_min/                    # step 5  19 interactional features
 │   ├── datasets/                        # step 6  joined X + Y tables
 │   ├── cejc_speaker_metadata.tsv        # step 6  sex / age per record
 │   └── results/                         # step 7  all statistical output

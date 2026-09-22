@@ -1100,7 +1100,7 @@ def gen_feature_distribution(features_df: pd.DataFrame, out_dir: Path) -> None:
     for j, cat in enumerate(row2):
         _plot_cat(fig.add_subplot(inner[0, j]), cat)
 
-    fig.suptitle("Distribution of 19 Interaction Features by Category",
+    fig.suptitle("Distribution of 19 Interactional Features by Category",
                  fontsize=13, fontweight="bold", y=0.995)
     out_path = out_dir / "fig_feature_distribution.png"
     fig.savefig(out_path, dpi=600, bbox_inches="tight")
@@ -2086,7 +2086,7 @@ def gen_fig_predicted_vs_observed(
 
     For each of 5 Big5 traits:
     1. Load ensemble scores (4-teacher average)
-    2. Merge with 19 interaction features
+    2. Merge with 19 interactional features
     3. Run Ridge (α=100) 5-fold subject-wise CV
     4. Collect out-of-fold predictions
     5. Plot observed (x) vs predicted (y) scatter with regression line

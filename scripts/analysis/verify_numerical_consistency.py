@@ -116,7 +116,7 @@ def verify_consistency(
     Therefore, r_obs values are NOT expected to match numerically.
     This function instead verifies:
       1. Parameter consistency (seed, alpha)
-      2. Feature set consistency (interaction features match)
+      2. Feature set consistency (interactional features match)
       3. Whether any unexpected discrepancies exist in the feature sets
 
     Args:
@@ -217,7 +217,7 @@ def verify_consistency(
         "expected to match."
     )
     summary_lines.append(
-        "  The key check is that the 19 interaction features are identical "
+        "  The key check is that the 19 interactional features are identical "
         "in both analyses."
     )
 
@@ -231,7 +231,7 @@ def verify_consistency(
         report.overall_consistent = True
         summary_lines.append("")
         summary_lines.append(
-            "✓ All interaction feature sets are consistent between analyses."
+            "✓ All interactional feature sets are consistent between analyses."
         )
 
     report.summary = "\n".join(summary_lines)
@@ -288,10 +288,10 @@ def _check_trait_consistency(
         result.diagnosis = f"Error reading permutation_coef file: {e}"
         return result
 
-    # ── Compare interaction feature sets ─────────────────────────────
+    # ── Compare interactional feature sets ─────────────────────────────
     # Three-stage Stage 3 uses: demographics (2) + CLASSICAL (10) + NOVEL (9) = 21
     # Permutation coef uses: CLASSICAL (10) + NOVEL (9) = 19
-    # We check that the 19 interaction features match
+    # We check that the 19 interactional features match
     expected_interaction = set(ALL_INTERACTION_FEATURES)
     actual_perm_features = set(result.perm_coef_features)
 
@@ -362,7 +362,7 @@ def _check_trait_consistency(
     else:
         result.feature_set_match = True
         result.diagnosis = (
-            "Interaction feature sets are consistent. "
+            "Interactional feature sets are consistent. "
             f"Three-stage Stage 3 uses {result.three_stage_n_features} features "
             f"(2 demographics + {result.perm_coef_n_features} interaction). "
             f"Permutation coef uses {result.perm_coef_n_features} interaction "

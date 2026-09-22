@@ -6,7 +6,7 @@ Step 2 of the pipeline: build pseudo-monologues for the HQ1 target pairs.
 For every (conversation_id, speaker_id) in the target-pair table, the speaker's
 utterances are concatenated in chronological order into a single text block.
 These blocks are the input the language models see when they answer the
-IPIP-NEO-120 items; the interaction features are computed from the utterance
+IPIP-NEO-120 items; the interactional features are computed from the utterance
 table separately, so the two views never share a preprocessing step.
 
 The output is written twice: once under `--out_parquet` and once under a

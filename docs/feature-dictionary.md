@@ -1,4 +1,4 @@
-# Feature dictionary — 19 interaction features
+# Feature dictionary — 19 interactional features
 
 The definitive definitions live in code, not in this file:
 

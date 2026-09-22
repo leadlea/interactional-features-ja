@@ -64,7 +64,7 @@ help:
 	@echo "  make pairs                step 1  HQ1 sample selection"
 	@echo "  make monologues           step 2  pseudo-monologues (+ sha256 pin)"
 	@echo "  make shards               step 3  shard for resumable scoring"
-	@echo "  make features             step 5  19 interaction features"
+	@echo "  make features             step 5  19 interactional features"
 	@echo "  make metadata             step 6  speaker metadata table"
 	@echo "  make analysis             step 7  all statistical analyses"
 	@echo "  make figures              step 8  manuscript figures and tables"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Sensitivity Analysis for interaction feature parameters.
+"""Sensitivity Analysis for interactional feature parameters.
 
 Run Ridge + Permutation test under varying parameter conditions
 to assess robustness of main results (trait C).
@@ -478,7 +478,7 @@ def run_analysis(
 # ── CLI ──────────────────────────────────────────────────────────────
 def main():
     ap = argparse.ArgumentParser(
-        description="Sensitivity analysis for interaction feature parameters",
+        description="Sensitivity analysis for interactional feature parameters",
     )
     ap.add_argument(
         "--utterances_parquet", default=None,

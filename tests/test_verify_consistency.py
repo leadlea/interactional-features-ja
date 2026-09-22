@@ -45,7 +45,7 @@ class TestVerifyConsistency:
     """Tests for verify_consistency function."""
 
     def test_consistent_feature_sets(self, tmp_path: Path):
-        """When both analyses use the same 19 interaction features, report consistent."""
+        """When both analyses use the same 19 interactional features, report consistent."""
         ts_dir = tmp_path / "three_stage"
         pc_dir = tmp_path / "permutation_coef"
         ts_dir.mkdir()
