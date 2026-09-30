@@ -152,10 +152,16 @@ interchangeable:
 | DOI | Resolves to | Use for |
 |---|---|---|
 | [10.5281/zenodo.22888170](https://doi.org/10.5281/zenodo.22888170) | whichever release is latest | the badge above, citing the project in general |
-| [10.5281/zenodo.22888171](https://doi.org/10.5281/zenodo.22888171) | v1.3.0 specifically | reproducing the reported numbers |
+| [10.5281/zenodo.23066720](https://doi.org/10.5281/zenodo.23066720) | **v1.4.0** specifically | reproducing the reported numbers |
+| [10.5281/zenodo.22888171](https://doi.org/10.5281/zenodo.22888171) | v1.3.0 specifically | superseded — predates the 2026-09-30 revision |
 
 The manuscript cites the version DOI, because a reader has to be able to reach the
 exact code that produced the values in the article.
+
+**Use v1.4.0, not v1.3.0, to reproduce the tables and figures in the manuscript.**
+The 2026-09-30 revision changed the four scripts that render them, so v1.3.0 no longer
+matches what the article prints. v1.4.0 was checked to reproduce the three tables byte
+for byte and the three figures by SHA-256.
 
 ## License
 
