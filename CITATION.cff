@@ -23,18 +23,17 @@ date-released: "2026-09-30"
 type: software
 license: MIT
 repository-code: "https://github.com/leadlea/interactional-features-ja"
-# The version DOI for THIS release is minted by Zenodo when the GitHub release is
-# published, so it is not known at tagging time. Until it is filled in, the concept
-# DOI below is the only one recorded here.
-# TODO(v1.4.0): after the release appears on Zenodo, set `doi:` and the first
-# identifier to the v1.4.0 version DOI, and update the three places in the
-# manuscript that cite it (see docs/review/soda_20260930_inventory.md §15 in the
-# working repository).
-doi: "10.5281/zenodo.22888170"
+# The version DOI for this release (v1.4.0). The concept DOI,
+# 10.5281/zenodo.22888170, always resolves to the latest release and is the one in
+# the README badge. The manuscript cites the version DOI, never the concept DOI.
+doi: "10.5281/zenodo.23066720"
 identifiers:
   - type: doi
+    value: "10.5281/zenodo.23066720"
+    description: "Version DOI for v1.4.0 (the release the manuscript cites)"
+  - type: doi
     value: "10.5281/zenodo.22888171"
-    description: "Version DOI for v1.3.0 (superseded; the manuscript will cite v1.4.0)"
+    description: "Version DOI for v1.3.0 (superseded: predates the 2026-09-30 review)"
   - type: doi
     value: "10.5281/zenodo.22888170"
     description: "Concept DOI for all versions"
