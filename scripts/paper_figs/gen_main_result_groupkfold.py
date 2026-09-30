@@ -1,41 +1,37 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-r"""Headline result (permutation test on the virtual Big5) under subject-wise CV.
+r"""主結果（仮想Big5に対する置換検定）の表・図を subject-wise CV 版で生成する.
 
-Why this exists
----------------
-The headline result used to be produced by ``scripts/analysis/ensemble_permutation.py``
-and ``gen_paper_figs_v2.py::collect_oof_predictions``, both of which use a plain
-``KFold(shuffle=True)``. The manuscript describes GroupKFold over ``cejc_person_id``
-(a subject-wise split); with 59.2% of records coming from repeated speakers, the plain
-KFold leaks speaker-specific patterns. Since the staged ridge analysis was moved to an
-appendix, this permutation test is now the only headline result, so the table and the
-figure are regenerated here under the subject-wise split.
+背景
+----
+従来の主結果は ``scripts/analysis/ensemble_permutation.py`` と
+``gen_paper_figs_v2.py::collect_oof_predictions`` が **通常 KFold(shuffle=True)** を
+使って算出されていた。本文 §2.4 は GroupKFold（cejc_person_id 単位の subject-wise
+split）と記述しており不整合だった（話者重複59.2%のためリークが生じる）。
+2026-09-06 の方針変更で3段階Ridgeを本文から外し置換検定が主結果になるため、
+本スクリプトで GroupKFold 版に統一して表・図を再生成する。
 
-Inputs
-------
+入力
+----
 - ``artifacts/analysis/results/ensemble_perm_groupkfold/ensemble_summary_groupkfold.tsv``
-  from ``scripts/analysis/ensemble_permutation_groupkfold.py``
+  （生成元: ``scripts/analysis/ensemble_permutation_groupkfold.py``）
 - ``artifacts/analysis/datasets/cejc_home2_hq1_XY_{trait}only_ensemble.parquet``
-- ``artifacts/analysis/cejc_speaker_metadata.tsv`` (supplies the GroupKFold groups)
+- ``artifacts/analysis/cejc_speaker_metadata.tsv``（GroupKFold の groups 用）
 - ``artifacts/analysis/results/confound_ensemble_all5.tsv``
-  from ``confound_analysis_groupkfold.py --traits O,C,E,A,N --ensemble_only``
+  （生成元: ``confound_analysis_groupkfold.py --traits O,C,E,A,N --ensemble_only``）
 
-Outputs (``reports/paper_figs_v2/``)
-------------------------------------
-- ``tab_ensemble_permutation.tex``  headline table (r_obs, uncorrected p, Holm p)
-- ``fig_predicted_vs_observed.png`` observed versus out-of-fold predicted (5 dimensions)
-- ``tab_confound_all5.tex``         confound control (sex, age)
+出力（``reports/paper_figs_v2/``）
+--------------------------------
+- ``tab_ensemble_permutation.tex``  主結果表（$r_{obs}$・補正前$p$・Holm補正後$p$）
+- ``fig_predicted_vs_observed.png`` 観測値 vs OOF予測値の散布図（5次元）
+- ``tab_confound_all5.tex``         交絡統制（性別・年齢）の結果表
 
-The r annotated on the scatter panels is the same fold-averaged Pearson r as the
-table -- the statistic the permutation test is built on -- so the figure and the
-table can never disagree.
+散布図の注記に用いる $r$ は表と同一の「fold平均 Pearson $r$」（置換検定の検定統計量）
+とし、図と表で数値が食い違わないようにしている。
 
-An ``_en`` twin of each table is written as well, for the English manuscript.
-
-Usage
------
-    python scripts/paper_figs/gen_main_result_groupkfold.py
+再現コマンド
+------------
+    .venv/bin/python scripts/paper_figs/gen_main_result_groupkfold.py
 """
 from __future__ import annotations
 
@@ -92,7 +88,7 @@ def load_xy(datasets_dir: Path, metadata_tsv: Path, trait: str,
 
 
 def oof_predictions_groupkfold(X, y, groups, folds=5, seed=42, alpha=100.0):
-    """Out-of-fold predictions under a subject-wise (GroupKFold) split."""
+    """subject-wise（GroupKFold）による out-of-fold 予測値."""
     y_pred = np.full(len(y), np.nan, dtype=float)
     for tr, te in GroupKFold(n_splits=folds).split(X, y, groups):
         imp = SimpleImputer(strategy="median")
@@ -109,17 +105,15 @@ def oof_predictions_groupkfold(X, y, groups, folds=5, seed=42, alpha=100.0):
 
 def gen_tab_ensemble_permutation(summary: pd.DataFrame, out_dir: Path,
                                  lang: str = "ja") -> None:
-    """Headline result table; lang="en" also writes an English-header twin."""
+    """主結果表。lang="en" で英語ヘッダ版（*_en.tex）も出す（paper1_en_20260922.tex 用）."""
     L = {"ja": {"dim": "次元", "verdict": "判定", "ns": "n.s."},
          "en": {"dim": "Dimension", "verdict": "Verdict", "ns": "n.s."}}[lang]
 
-    # RMSE and the pooled out-of-fold metrics are reported alongside the
-    # fold-averaged correlation. Ridge shrinks the predictions toward the mean, so a
-    # correlation alone is a weak summary; the fold-averaged r in particular ignores
-    # per-fold offsets in the predictions (for agreeableness the fold average is
-    # 0.517 while the pooled value is 0.366). The test statistic is the fold-averaged
-    # r, so that column is kept for consistency with the permutation test, and the
-    # pooled r, the coefficient of determination and the RMSE are placed next to it.
+    # 2026-09-13 の宗田先生のご指摘により RMSE と連結指標を併記する。
+    # 予測値が平均に偏るため相関だけでは指標として不十分で、とくに fold平均 r は
+    # fold間の予測値のオフセットずれを拾わない（A で fold平均 0.517 / 連結 0.366）。
+    # 検定統計量は fold平均 r なので、検定と整合する r を残したうえで
+    # 連結 r・決定係数・RMSE を並べ、読者がどちらでも判断できるようにする。
     has_pooled = {"r_oof", "R2_oof", "RMSE"}.issubset(summary.columns)
 
     rows = []
@@ -127,10 +121,13 @@ def gen_tab_ensemble_permutation(summary: pd.DataFrame, out_dir: Path,
         r = summary.loc[trait]
         sig = "*" if r["p_groupkfold_holm"] < 0.05 else L["ns"]
         if has_pooled:
+            # 2026-09-30 の宗田先生のご指摘 #51「p値は，対象となる統計量の傍に記して
+            # あげるとわかりやすい」により、検定統計量である fold平均 r の直後に
+            # p と補正後 p と判定を置き、連結指標（r_oof / R^2 / RMSE）を後ろに回した。
             rows.append(
-                f"{trait} & {r['r_groupkfold']:.3f} & {r['r_oof']:.3f} & "
-                f"{r['R2_oof']:.3f} & {r['RMSE']:.3f} & "
-                f"{r['p_groupkfold']:.4f} & {r['p_groupkfold_holm']:.4f} & {sig} \\\\"
+                f"{trait} & {r['r_groupkfold']:.3f} & "
+                f"{r['p_groupkfold']:.4f} & {r['p_groupkfold_holm']:.4f} & {sig} & "
+                f"{r['r_oof']:.3f} & {r['R2_oof']:.3f} & {r['RMSE']:.3f} \\\\"
             )
         else:
             rows.append(
@@ -140,11 +137,11 @@ def gen_tab_ensemble_permutation(summary: pd.DataFrame, out_dir: Path,
 
     if has_pooled:
         latex = (
-            "\\begin{tabular}{lrrrrrrc}\n"
+            "\\begin{tabular}{lrrrcrrr}\n"
             "\\toprule\n"
-            f"{L['dim']} & $r_{{\\mathrm{{fold}}}}$ & $r_{{\\mathrm{{oof}}}}$ & "
-            f"$R^{{2}}_{{\\mathrm{{oof}}}}$ & RMSE & $p$ & "
-            f"$p_{{\\mathrm{{corrected}}}}$ & {L['verdict']} \\\\\n"
+            f"{L['dim']} & $r_{{\\mathrm{{fold}}}}$ & $p$ & "
+            f"$p_{{\\mathrm{{corrected}}}}$ & {L['verdict']} & "
+            f"$r_{{\\mathrm{{oof}}}}$ & $R^{{2}}_{{\\mathrm{{oof}}}}$ & RMSE \\\\\n"
             "\\midrule\n"
             + "\n".join(rows) + "\n"
             "\\bottomrule\n"
@@ -169,7 +166,7 @@ def gen_tab_ensemble_permutation(summary: pd.DataFrame, out_dir: Path,
 
 def gen_tab_confound_all5(confound: pd.DataFrame, out_dir: Path,
                           lang: str = "ja") -> None:
-    """Confound-control table; lang="en" also writes an English-header twin."""
+    """交絡統制表。lang="en" で英語ヘッダ版も出す."""
     L = {
         "ja": {"dim": "次元", "a": "Model A（特徴量19変数）",
                "b": "Model B（+性別・年齢）"},
@@ -250,8 +247,8 @@ def gen_fig_predicted_vs_observed(
         ax.set_aspect("equal", adjustable="box")
 
         star = " *" if is_sig else ""
-        # Significance is shown by an asterisk and by colour, never by bold
-        # (table/figure convention: asterisks throughout).
+        # 有意性はアスタリスクと色で示す。太字による符号化は用いない
+        # （宗田レビュー[NOTE]405・#2180）。
         ax.text(0.04, 0.965, f"r = {r_val:.3f}, p = {p_val:.4f}{star}",
                 transform=ax.transAxes, fontsize=7.2, va="top", ha="left",
                 color=color,

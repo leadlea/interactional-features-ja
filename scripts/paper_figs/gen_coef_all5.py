@@ -1,36 +1,32 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-r"""Coefficient-level results for all five Big5 dimensions (O/C/E/A/N).
+r"""Big5 全5次元（O/C/E/A/N）版の係数レベル結果の表・図を生成する.
 
-Why this exists
----------------
-The coefficient-level tables and figure were originally produced for C alone
-(``tab_permutation_coef.tex``, ``tab_bootstrap_variance.tex``,
-``fig_bootstrap_variance.png``). Reporting all five dimensions at equal granularity
-requires a five-dimension version, which this script generates.
+背景
+----
+2026-09-06 の山下先生・宗田先生との合議で、論文全体を C（誠実性）偏重の書き振りから
+Big5 5次元を均等に扱う書き振りへ改める方針が決まった。従来の
+``tab_permutation_coef.tex`` / ``tab_bootstrap_variance.tex`` / ``fig_bootstrap_variance.png``
+は C 単独版なので、本スクリプトで5次元版を生成する。
 
-Inputs
-------
-``artifacts/analysis/results/coef_bootstrap_all5_modelb/``
-  - ``permutation_coef_{trait}_ensemble.tsv``   (21 predictors, alpha=100, 5,000 permutations)
-  - ``bootstrap_variance_{trait}_ensemble.tsv`` (21 predictors, alpha=100, 500 bootstrap resamples)
-Produced by ``bash scripts/analysis/run_coef_bootstrap_all5_modelb.sh``.
+入力
+----
+``artifacts/analysis/results/coef_bootstrap_all5/``
+  - ``permutation_coef_{trait}_ensemble.tsv``   （19特徴量・alpha=100・置換5000回）
+  - ``bootstrap_variance_{trait}_ensemble.tsv`` （19特徴量・alpha=100・Bootstrap500回）
+生成元: ``bash scripts/analysis/_run_coef_bootstrap_all5.sh``
 
-Outputs (``reports/paper_figs_v2/``)
-------------------------------------
-- ``tab_coef_all5.tex``          Main text. Regression coefficients, 19 features x 5 dimensions.
-                                 ``*`` marks a *dually supported feature* (permutation p<0.05 AND
-                                 a bootstrap 95% CI excluding zero); ``\dagger`` marks a feature
-                                 satisfying only one of the two.
-- ``tab_coef_all5_detail.tex``   Appendix. Full beta / p / 95% CI per dimension (longtable).
-- ``tab_criterion_counts.tex``   Appendix. How many features each decision rule identifies.
-- ``fig_coef_all5.png``          Coefficient plot, one row of five panels (beta +/- 95% CI).
+出力（``reports/paper_figs_v2/``）
+--------------------------------
+- ``tab_coef_all5.tex``          本文用。19特徴量 × 5次元の回帰係数一覧。
+                                 ``*``=置換検定 p<0.05 かつ Bootstrap 95%CI がゼロを除外（両手法一致）、
+                                 ``\dagger``=いずれか一方のみ。
+- ``tab_coef_all5_detail.tex``   付録用。次元ごとに β・p・95%CI を全記載（longtable）。
+- ``fig_coef_all5.png``          5パネルのフォレストプロット（β ± 95%CI）。
 
-An ``_en`` twin of each table is written as well, for the English manuscript.
-
-Usage
------
-    python scripts/paper_figs/gen_coef_all5.py
+再現コマンド
+------------
+    .venv/bin/python scripts/paper_figs/gen_coef_all5.py
 """
 from __future__ import annotations
 
@@ -42,9 +38,9 @@ import pandas as pd
 
 TRAITS = ["O", "C", "E", "A", "N"]
 
-# Same order as Table 1 (Classical 10 -> Novel 9), fixed across every dimension and
-# every figure. It must match the order in tab_feature_definitions.tex exactly,
-# because the manuscript's captions state that the two share an ordering.
+# 本文表1と同じ並び（Classical 10 → Novel 9）。全次元・全図表でこの順を固定する。
+# 表1（tab_feature_definitions.tex）の掲載順と完全に一致させる。
+# 本文キャプションで「表1と共通」と述べているため、ここを崩すと不整合になる。
 FEATURE_ORDER = [
     "PG_speech_ratio", "PG_pause_mean", "PG_pause_p50", "PG_pause_p90",
     "PG_resp_gap_mean", "PG_resp_gap_p50", "PG_resp_gap_p90",
@@ -63,17 +59,17 @@ NOVEL_FEATURES = {
     "PG_pause_variability",
 }
 
-# Descriptive names for the figure's axis labels. The figure uses these rather than
-# the implementation identifiers (PG_speech_ratio and so on); the identifiers appear
-# only in Table 1 and the appendices. Same content as Table 1's description column.
+# 図の軸ラベルに使う説明的名称。本文・図では実装上の識別子（PG_speech_ratio 等）ではなく
+# こちらを使い、識別子は表1と付録にのみ残す（2026-09-21 山下先生ご指摘）。
+# 表1の Description 列と同じ内容を英語で表す。
 FEATURE_LABELS_EN = {
     "PG_speech_ratio": "Speech ratio",
     "PG_pause_mean": "Pause length (mean)",
     "PG_pause_p50": "Pause length (median)",
-    "PG_pause_p90": "Pause length (p90)",
+    "PG_pause_p90": "Pause length (90th pct.)",
     "PG_resp_gap_mean": "Response gap (mean)",
     "PG_resp_gap_p50": "Response gap (median)",
-    "PG_resp_gap_p90": "Response gap (p90)",
+    "PG_resp_gap_p90": "Response gap (90th pct.)",
     "FILL_has_any": "Filler-bearing utterance rate",
     "FILL_rate_per_100chars": "Filler rate per 100 characters",
     "PG_overlap_rate": "Overlap rate",
@@ -88,13 +84,11 @@ FEATURE_LABELS_EN = {
     "PG_pause_variability": "Pause length variability",
 }
 
-# Palette. Using hue for the sign of a coefficient collides with the reader's prior
-# that red means positive and blue negative, so hue carries no meaning here: shade
-# and line weight mark whether a feature is dually supported, and the sign is read
-# from which side of the zero line the interval falls on. This also survives
-# monochrome printing.
-COLOR_SUPPORTED = "#1f3864"   # dark navy: supported by both procedures
-COLOR_OTHER = "#b3b3b3"       # light grey: everything else
+# 配色。符号（正負）を色相で表すと「赤＝正／青＝負」という先入観と衝突するため、
+# 色相ではなく濃淡と線幅で判定の有無を示す（2026-09-21 山下先生ご指摘）。
+# 符号はゼロ線の左右どちらに出るかで読む。
+COLOR_SUPPORTED = "#1f3864"   # 濃紺: 両手法で支持された特徴量
+COLOR_OTHER = "#b3b3b3"        # 淡グレー: それ以外
 
 
 def tex_escape_feature(name: str) -> str:
@@ -117,15 +111,24 @@ def load_all5(results_dir: Path) -> dict[str, pd.DataFrame]:
         if missing:
             raise KeyError(f"trait={trait}: missing features {missing}")
 
-        df = pd.DataFrame(index=FEATURE_ORDER)
-        df["coef_obs"] = perm.loc[FEATURE_ORDER, "coef_obs"].astype(float)
-        df["p_value"] = perm.loc[FEATURE_ORDER, "p_value"].astype(float)
+        # 2026-09-30: 統制変数（confound_age / confound_gender）も読む。宗田先生 #36 で
+        # 本文の「統制変数の係数は表の脚に別記」という記述に対応する行が表に無いことが
+        # 判明したため、同じ判定規則で脚に出せるようにする。
+        # 図（フォレストプロット）は FEATURE_ORDER だけを描くので、行の追加は
+        # gen_tab_coef_all5 側でのみ使う。存在しない場合は黙って落とす（旧データ互換）。
+        ctrl = [c for c in ("confound_age", "confound_gender")
+                if c in perm.index and c in boot.index]
+        rows_idx = list(FEATURE_ORDER) + ctrl
+
+        df = pd.DataFrame(index=rows_idx)
+        df["coef_obs"] = perm.loc[rows_idx, "coef_obs"].astype(float)
+        df["p_value"] = perm.loc[rows_idx, "p_value"].astype(float)
         df["perm_sig"] = df["p_value"] < 0.05
-        df["coef_mean"] = boot.loc[FEATURE_ORDER, "coef_mean"].astype(float)
-        df["coef_sd"] = boot.loc[FEATURE_ORDER, "coef_sd"].astype(float)
-        df["ci_lower"] = boot.loc[FEATURE_ORDER, "ci_lower"].astype(float)
-        df["ci_upper"] = boot.loc[FEATURE_ORDER, "ci_upper"].astype(float)
-        df["boot_sig"] = boot.loc[FEATURE_ORDER, "ci_excludes_zero"].astype(bool)
+        df["coef_mean"] = boot.loc[rows_idx, "coef_mean"].astype(float)
+        df["coef_sd"] = boot.loc[rows_idx, "coef_sd"].astype(float)
+        df["ci_lower"] = boot.loc[rows_idx, "ci_lower"].astype(float)
+        df["ci_upper"] = boot.loc[rows_idx, "ci_upper"].astype(float)
+        df["boot_sig"] = boot.loc[rows_idx, "ci_excludes_zero"].astype(bool)
         df["both"] = df["perm_sig"] & df["boot_sig"]
         df["either"] = df["perm_sig"] | df["boot_sig"]
         out[trait] = df
@@ -134,16 +137,16 @@ def load_all5(results_dir: Path) -> dict[str, pd.DataFrame]:
 
 def gen_tab_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path,
                       lang: str = "ja") -> None:
-    """Main-text table: coefficients for 19 features x 5 dimensions.
+    """本文用: 19特徴量 × 5次元の回帰係数一覧（両手法一致を * で示す）.
 
-    With lang="en" an English-header twin (tab_coef_all5_en.tex) is written, so
-    that the English manuscript cites the same numbers. Same convention as
-    tab_feature_definitions_en.tex.
+    lang="en" で英語版（tab_coef_all5_en.tex）を出力する。英語版原稿
+    （paper1_en_20260922.tex）は同じ数値を英語ヘッダで参照するため、
+    tab_feature_definitions_en.tex と同じ二枚看板の運用にする。
     """
-    # The summary row's label has to match what the manuscript calls these features.
-    # The caption speaks of "the number of dually supported features", so the row
-    # label says the same thing; "concordant" is not used, because the name does not
-    # say what agrees with what.
+    # 集計行の見出しは本文の呼称に合わせる。2026-09-21 の改称（C103: 「一致特徴量」→
+    # 「両手法支持特徴量」）が表の行見出しに反映されておらず、本文キャプションが
+    # 「両手法支持特徴量の個数」と述べているのに表側は旧称のままだったため合わせる。
+    # 英語版も glossary で concordant を禁止語にしているので dually supported にする。
     L = {
         "ja": {"feat": "特徴量", "n_conc": "両手法支持特徴量数",
                "n_novel": "\\quad うち新規（Novel）"},
@@ -163,12 +166,35 @@ def gen_tab_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path,
             cells.append(s)
         lines.append(f"{tex_escape_feature(feat)} & " + " & ".join(cells) + r" \\")
 
-    # Append per-dimension counts of dually supported features as summary rows
-    n_both = [int(data[t]["both"].sum()) for t in TRAITS]
+    # 次元ごとの一致特徴量数を集計行として付す
+    # 集計は19特徴量のみ。統制変数の行を含めると「両手法支持特徴量数」が変わってしまう。
+    n_both = [int(data[t].loc[FEATURE_ORDER, "both"].sum()) for t in TRAITS]
     n_novel = [
         int((data[t]["both"] & pd.Series({f: f in NOVEL_FEATURES for f in FEATURE_ORDER})).sum())
         for t in TRAITS
     ]
+
+    # 2026-09-30 の宗田先生のご指摘 #36。本文は「統制変数（性別・年齢）の係数は表の脚に
+    # 別記する」と書いていたが、実際には表に入っていなかった。結果節が具体値
+    # （年齢 O −0.058 / C +0.057、性別 A +0.045）を引用しているのに表に無いのは不整合なので、
+    # 脚に2行足す。判定は特徴量と同じ規則（両手法一致で *、片方のみで †）。
+    ctrl_rows: list[str] = []
+    ctrl_labels = {"confound_age": "Age (control)", "confound_gender": "Sex (control)"}
+    for key, label in ctrl_labels.items():
+        cells = []
+        for trait in TRAITS:
+            df = data[trait]
+            if key not in df.index:
+                cells.append("---")
+                continue
+            row = df.loc[key]
+            s = f"{row['coef_obs']:+.3f}"
+            if row["both"]:
+                s = f"{s}$^{{*}}$"
+            elif row["either"]:
+                s = f"{s}$^{{\\dagger}}$"
+            cells.append(s)
+        ctrl_rows.append(f"{label} & " + " & ".join(cells) + r" \\")
 
     body = "\n".join(lines)
     latex = (
@@ -180,6 +206,8 @@ def gen_tab_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path,
         f"{L['feat']} & O & C & E & A & N \\\\\n"
         "\\midrule\n"
         f"{body}\n"
+        "\\midrule\n"
+        + "\n".join(ctrl_rows) + "\n"
         "\\midrule\n"
         f"{L['n_conc']} & " + " & ".join(str(v) for v in n_both) + " \\\\\n"
         f"{L['n_novel']} & " + " & ".join(str(v) for v in n_novel) + " \\\\\n"
@@ -195,12 +223,11 @@ def gen_tab_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path,
 
 def gen_tab_criterion_counts(data: dict[str, pd.DataFrame], out_dir: Path,
                              lang: str = "ja") -> None:
-    """Appendix table: how many features each decision rule identifies.
+    """付録用: 寄与判定の基準ごとに同定される特徴量数（置換のみ／Bootstrapのみ／両方）.
 
-    The manuscript requires both procedures to agree. Taking either one alone is a
-    looser rule and identifies more features, so this table discloses the count
-    under each of the three rules and makes the effect of the rule's stringency
-    visible instead of leaving the reader to wonder why a count changed.
+    本文は「両方を満たす」を判定条件にしている。どちらか一方だけを基準にすると
+    同定数がどう変わるかを開示し、判定の厳しさが結果に与える影響を示す
+    （2026-09-21 山下先生のご質問「有意な特徴量の数が変わったのはなぜか」への対応）。
     """
     L = {
         "ja": {
@@ -243,7 +270,7 @@ def gen_tab_criterion_counts(data: dict[str, pd.DataFrame], out_dir: Path,
 
 def gen_tab_coef_all5_detail(data: dict[str, pd.DataFrame], out_dir: Path,
                              lang: str = "ja") -> None:
-    """Appendix table: full beta / p / bootstrap mean / SD / 95% CI per dimension."""
+    """付録用: 次元ごとに β_obs・p値・Bootstrap平均・SD・95%CI を全記載."""
     L = {
         "ja": {
             "feat": "特徴量", "p": "$p$値", "ci": "95\\%CI",
@@ -313,40 +340,38 @@ def gen_tab_coef_all5_detail(data: dict[str, pd.DataFrame], out_dir: Path,
 
 
 def gen_fig_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path) -> None:
-    r"""Coefficient forest plot: features on the y axis, O/C/E/A/N across five columns.
+    r"""5次元の係数フォレストプロット（特徴量をy軸・O/C/E/A/N を横に5列）.
 
-    Layout rationale
+    レイアウトの経緯
     ----------------
-    A stacked layout (five rows, features on the x axis) was tried first. Each panel
-    then comes out wide and short, which flattens the confidence intervals and makes
-    the 19 features x 5 dimensions hard to compare.
+    2026-09-12 に「5行1列・特徴量をx軸」の縦積みへ変更したが、
+    1パネルが横長・低背になるため各CIの長さが潰れて見え、
+    19特徴量 × 5次元の違いが読み取りにくくなった（2026-09-21 山下先生ご指摘）。
 
-    So the layout is a one-row, five-column forest plot with the features on the y
-    axis. Unlike an earlier attempt, it is not rotated 90 degrees with \rotatebox:
-    the figure is placed on its own page and set at width=\linewidth, which keeps
-    every label upright while still buying back scale.
+    そこで「1行5列・特徴量をy軸」のフォレストプロットに戻す。
+    ただし以前のように \rotatebox で90度回転させるのではなく、
+    figure 環境を単独ページ（[p]）に置いて width=\linewidth で組む。
+    これにより全ての文字が正立し、かつ縮小率を確保できる。
 
-    Size
+    サイズ
+    ------
+    本文幅は 406.87pt = 5.63in。他の図は width=\linewidth 〜 0.82\linewidth で
+    組んでいるので、図4も \linewidth に収める（2026-09-21 ご指摘: 図4だけ幅が
+    大きく他の図とバランスが悪い）。キャンバス幅を 6.8in に抑えると縮小率が 0.83 になり、
+    8.5pt の軸ラベルが紙面上で約 7pt として読める。
+    x 軸ラベルはパネルごとに5回並べず図全体で1つにして、横幅をパネルに回す。
+
+    配色
     ----
-    The English manuscript's text width is 453pt; the other figures are set between
-    0.82\linewidth and \linewidth, so this one stays at \linewidth rather than
-    spilling into the 1in margins BRM requires. Holding the canvas to 6.8in puts the
-    scale factor near 0.83, so an 8.5pt axis label reads at about 7pt on the page.
-    The x-axis label is drawn once for the whole figure rather than five times, which
-    returns that width to the panels.
+    符号を色相で表すと「赤＝正／青＝負」という先入観と衝突するため、
+    色相を意味に使わない。両手法で支持された特徴量は濃紺＋太線＋塗りマーカー、
+    それ以外は淡グレー＋細線＋白抜きマーカーとし、符号はゼロ線の左右で読む。
+    モノクロ印刷でも線幅とマーカーの塗りで区別できる。
 
-    Palette
-    -------
-    Hue is not used to carry meaning, because red-for-positive collides with the
-    reader's prior. Dually supported features are dark navy with a thick line and a
-    filled marker; the rest are light grey with a thin line and an open marker. The
-    sign is read from which side of the zero line an interval falls on. Line weight
-    and marker fill keep the distinction in monochrome print.
-
-    Axis labels
-    -----------
-    Descriptive names (FEATURE_LABELS_EN), not implementation identifiers. The
-    identifiers appear only in Table 1 and the appendices.
+    軸ラベル
+    --------
+    実装上の識別子ではなく説明的名称（FEATURE_LABELS_EN）を使う。
+    識別子は表1と付録にのみ残す。
     """
     import matplotlib
     matplotlib.use("Agg")
@@ -386,7 +411,7 @@ def gen_fig_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path) -> None:
             )
 
         ax.set_xlim(lo - pad, hi + pad)
-        ax.set_ylim(n - 0.5, -0.5)  # top to bottom in FEATURE_ORDER
+        ax.set_ylim(n - 0.5, -0.5)  # 上から FEATURE_ORDER の順
         ax.set_title(trait, fontsize=11, fontweight="bold", pad=5)
         ax.set_xticks([-0.05, 0.0, 0.05])
         ax.set_xticklabels(["$-$.05", "0", ".05"], fontsize=6.5)
@@ -399,21 +424,23 @@ def gen_fig_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path) -> None:
     axes[0].set_yticks(np.arange(n))
     axes[0].set_yticklabels([FEATURE_LABELS_EN[f] for f in FEATURE_ORDER], fontsize=8.5)
 
-    # One x-axis label for the whole figure
+    # x 軸ラベルは図全体で1つ
     fig.supxlabel("Ridge coefficient (mean $\\pm$ 95% CI)", fontsize=8.5, y=0.055)
 
-    # No Classical / Novel divider is drawn. Only the layout and the palette changed;
-    # every other element is kept as it was in the previous version of the figure.
+    # Classical / Novel の区切りは図には入れない。
+    # 2026-09-21 のご指摘は「レイアウトを縦に戻す」「配色を変える」の2点なので、
+    # それ以外の要素は前バージョンの図と同じに保つ。
 
+    # 2026-09-30 の宗田先生のご指摘 #54「レジェンドの灰色の箇所は，意味がないため
+    # 削除で良いかと思います」。灰色は「両手法に支持されなかった」＝支持された方の
+    # 否定にすぎず、凡例に項目を立てる情報量がない。濃紺の項目だけを残し、
+    # 残りが灰色であることはキャプションの1節で述べる。
     legend_handles = [
         Line2D([0], [0], color=COLOR_SUPPORTED, linewidth=2.0, marker="o",
                markerfacecolor=COLOR_SUPPORTED, markeredgecolor=COLOR_SUPPORTED,
                markersize=4.5,
                label="supported by both procedures "
                      "(permutation $p<.05$ and bootstrap 95% CI excluding zero)"),
-        Line2D([0], [0], color=COLOR_OTHER, linewidth=1.0, marker="o",
-               markerfacecolor="white", markeredgecolor=COLOR_OTHER, markersize=3.8,
-               label="not supported by both procedures"),
     ]
     fig.legend(handles=legend_handles, loc="lower center", ncol=1, fontsize=7,
                frameon=False, bbox_to_anchor=(0.55, -0.035))
@@ -426,7 +453,7 @@ def gen_fig_coef_all5(data: dict[str, pd.DataFrame], out_dir: Path) -> None:
 
 
 def print_summary(data: dict[str, pd.DataFrame]) -> None:
-    print("\n=== Dually supported (permutation p<0.05 and bootstrap CI excluding zero) ===")
+    print("\n=== 両手法一致（置換 p<0.05 かつ Bootstrap CI がゼロを除外）===")
     for trait in TRAITS:
         df = data[trait]
         both = df[df["both"]]
@@ -452,7 +479,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     data = load_all5(results_dir)
-    # The figure needs no language twin: its labels and legend are already English
+    # 図は軸ラベル・凡例が元から英語なので言語別の二枚看板は不要
     for lang in ("ja", "en"):
         gen_tab_coef_all5(data, out_dir, lang=lang)
         gen_tab_coef_all5_detail(data, out_dir, lang=lang)

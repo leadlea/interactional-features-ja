@@ -1,4 +1,4 @@
-"""19 interactional feature definitions + EXCL3 control variables.
+"""19 interaction feature definitions + EXCL3 control variables.
 
 Derived from ``scripts/analysis/extract_interaction_features_min.py``.
 Each entry documents name, category, summary, algorithm, and whether
@@ -31,6 +31,45 @@ class FeatureDefinition:
     is_control: bool
     classification: str  # "Classical" / "Novel" / "Control"
 
+    @property
+    def category_label(self) -> str:
+        """カテゴリの表示名。表・図・本文はこれを使う。
+
+        ``category`` は実装のプレフィクス（``FILL_has_any`` の ``FILL`` 等）で、
+        公開リポジトリの列名・sha256で固定した成果物と結びついているため変えられない。
+        論文側の呼称だけを差し替えるために表示名を分けている。
+        """
+        return CATEGORY_LABELS.get(self.category, self.category)
+
+
+# ------------------------------------------------------------------
+# カテゴリの表示名（2026-09-30・宗田先生レビュー #6）
+#
+# 宗田先生の指摘: 「sequence organization の略が IX は不自然なので SO などに修正する
+# のが良い。IX については元々私が Interaction から変更を提案したのが原因。読みやすさ
+# 優先で統一を」。あわせて RESP → RT、FILL → FU、Timing → Pause/gap の統一も提案。
+#
+# **実装側の識別子（PG_ / FILL_ / IX_ / RESP_ プレフィクス）は変更しない。**
+# 変えると公開リポジトリ leadlea/interactional-features-ja の列名が変わり、
+# sha256 で同一性を固定した特徴量行列・LLMスコアと突き合わせられなくなる。
+# 変えるのは論文の表示名だけで、その対応表がこれ。
+# ------------------------------------------------------------------
+CATEGORY_LABELS: dict[str, str] = {
+    "PG": "PG",    # pause/gap（呼称のみ Timing → Pause/gap に変更、略語は不変）
+    "FILL": "FU",  # filler use
+    "IX": "SO",    # sequence organization
+    "RESP": "RT",  # response typing
+    "CTRL": "CTRL",
+}
+
+# カテゴリ表示名のフルスペル。表と図の注釈に出す（宗田先生 #23）。
+CATEGORY_FULL_NAMES: dict[str, str] = {
+    "PG": "pause/gap",
+    "FILL": "filler use",
+    "IX": "sequence organization",
+    "RESP": "response typing",
+}
+
 
 # ------------------------------------------------------------------
 # 19 explanatory features (is_control=False)
@@ -43,7 +82,7 @@ _EXPLANATORY: List[FeatureDefinition] = [
         summary="Speech ratio",
         algorithm=(
             "Speaker's total speech time / total conversation time. "
-            "missing if total_time is 0 or missing."
+            "missing if the conversation duration is 0 or missing."
         ),
         is_control=False,
         classification="Classical",
@@ -54,7 +93,7 @@ _EXPLANATORY: List[FeatureDefinition] = [
         summary="Mean pause duration",
         algorithm=(
             "Mean of intra-speaker consecutive utterance gaps "
-            "(>=gap_tol sec). missing if no qualifying gaps."
+            "(>=0.05 sec). missing if no qualifying gaps."
         ),
         is_control=False,
         classification="Classical",
@@ -86,8 +125,8 @@ _EXPLANATORY: List[FeatureDefinition] = [
         category="PG",
         summary="Mean response gap",
         algorithm=(
-            "Mean of turn-taking gaps (prev_end -> resp_start, "
-            ">=gap_tol sec). missing if no qualifying gaps."
+            "Mean of turn-taking gaps (end of the prior utterance to onset of the "
+            "response, >=0.05 sec). missing if no qualifying gaps."
         ),
         is_control=False,
         classification="Classical",
@@ -140,7 +179,7 @@ _EXPLANATORY: List[FeatureDefinition] = [
         name="PG_overlap_rate",
         category="PG",
         summary="Overlap rate",
-        algorithm="Proportion of turn-taking gaps < -gap_tol (overlaps).",
+        algorithm="Proportion of turn-taking gaps < -0.05 sec (overlaps).",
         is_control=False,
         classification="Classical",
     ),
@@ -203,9 +242,9 @@ _EXPLANATORY: List[FeatureDefinition] = [
     FeatureDefinition(
         name="RESP_NE_AIZUCHI_RATE",
         category="RESP",
-        summary="Post-NE aizuchi rate",
+        summary="Post-NE backchannel rate",
         algorithm=(
-            "Proportion of responses that start with aizuchi prefixes "
+            "Proportion of responses that start with a backchannel form "
             "when previous utterance ends with NE particle. "
             "missing if n_pairs_after_NE is 0."
         ),

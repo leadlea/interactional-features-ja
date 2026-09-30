@@ -11,21 +11,27 @@ the same module, so the paper, this document, and the code cannot drift apart.
 
 ## Categories
 
-| Prefix | Category | Count | What the category captures |
-|---|---|---|---|
-| `PG` | speech timing | 9 | who holds the floor, and the silences around turn transitions |
-| `FILL` | fillers | 2 | hesitation markers (etto / ee / ano) |
-| `IX` | sequence organisation | 5 | how a response relates to what preceded it |
-| `RESP` | response types | 3 | what follows the sentence-final particles ne / yo |
+| Column prefix | Label in the manuscript | Category | Count | What the category captures |
+|---|---|---|---:|---|
+| `PG_` | `PG` | pause / gap | 9 | who holds the floor, and the silences around turn transitions |
+| `FILL_` | `FU` | filler use | 2 | hesitation markers (etto / ee / ano) |
+| `IX_` | `SO` | sequence organisation | 5 | how a response relates to what preceded it |
+| `RESP_` | `RT` | response typing | 3 | what follows the sentence-final particles ne / yo |
+
+The two abbreviation sets differ on purpose. The manuscript uses PG / FU / SO / RT;
+the column prefixes keep the implementation's originals so that a reported value can be
+traced to this code and to the SHA-256-pinned artefacts. Renaming the prefixes would break
+that link. The mapping lives in `CATEGORY_LABELS` in
+[`../scripts/paper_figs/feature_definitions.py`](../scripts/paper_figs/feature_definitions.py).
 
 ## Classical vs Novel
 
 `Classical` (10) are measures with established precedent in the conversation and
 speech-timing literature. `Novel` (9) are the measures this study proposes.
 
-The split is by variable, not by category: `PG` contains both classical
-variables and one novel one (`PG_pause_variability`), `FILL` is entirely
-classical, and `IX` and `RESP` are entirely novel. Category and novelty are not
+The split is by variable, not by category: `PG_` contains both classical
+variables and one novel one (`PG_pause_variability`), `FILL_` is entirely
+classical, and `IX_` and `RESP_` are entirely novel. Category and novelty are not
 in one-to-one correspondence.
 
 ## The 19 explanatory variables

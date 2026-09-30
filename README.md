@@ -6,10 +6,26 @@ Reproducible measurement of **19 interactional features** from Japanese everyday
 conversation, and the analyses that validate them.
 
 The features describe *how* people talk to each other rather than what they say:
-speech timing and silences (`PG`), fillers (`FILL`), how a response relates to
-what preceded it (`IX`), and what follows the sentence-final particles ne / yo
-(`RESP`). All of them are computed from transcripts with timestamps, with no
-manual coding step.
+pause and gap timing, filler use, how a response relates to what preceded it, and
+what follows the sentence-final particles ne / yo. All of them are computed from
+transcripts with timestamps, with no manual coding step.
+
+**Two sets of category abbreviations are in use, on purpose.** The manuscript labels
+the four categories PG / FU / SO / RT, while the column names in this repository keep
+the implementation's original prefixes. The prefixes are deliberately *not* renamed,
+so that a value reported in the manuscript can still be traced to the released code
+and to the SHA-256-pinned artefacts.
+
+| Category | Label in the manuscript | Column prefix here | Count |
+|---|---|---|---:|
+| pause / gap | `PG` | `PG_` | 9 |
+| filler use | `FU` | `FILL_` | 2 |
+| sequence organisation | `SO` | `IX_` | 5 |
+| response typing | `RT` | `RESP_` | 3 |
+
+The mapping is defined in one place, `CATEGORY_LABELS` in
+[`scripts/paper_figs/feature_definitions.py`](scripts/paper_figs/feature_definitions.py),
+and is what the generated tables and figures render.
 
 This repository is the code and provenance record for a manuscript being prepared
 for *Behavior Research Methods*. It contains the full pipeline, the tests, the

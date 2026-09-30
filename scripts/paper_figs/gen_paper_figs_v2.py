@@ -23,9 +23,15 @@ import numpy as np
 import pandas as pd
 
 try:
-    from scripts.paper_figs.feature_definitions import get_explanatory_features
+    from scripts.paper_figs.feature_definitions import (
+        CATEGORY_LABELS,
+        get_explanatory_features,
+    )
 except ModuleNotFoundError:
-    from feature_definitions import get_explanatory_features  # type: ignore[import-untyped]
+    from feature_definitions import (  # type: ignore[import-untyped]
+        CATEGORY_LABELS,
+        get_explanatory_features,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -341,7 +347,7 @@ def bootstrap_summary_path(bootstrap_dir: str | Path, trait: str, teacher: str) 
 
 def teacher_corr_path(trait: str) -> Path:
     """Build the path to a teacher correlation TSV."""
-    return Path("reports/model_agreement") / f"teacher_corr_{trait}.tsv"
+    return Path("docs/homework/assets") / f"teacher_corr_{trait}.tsv"
 
 
 # ---------------------------------------------------------------------------
@@ -779,7 +785,7 @@ def gen_fig_teacher_heatmap(out_dir: Path) -> None:
     # Expand x-axis to make room for the mean r annotation (avoid colorbar overlap)
     ax.set_xlim(-0.5, len(TEACHERS) - 0.5 + 3.0)
 
-    # Same as above. The caption reads "Mean agreement between models".
+    # 同上。キャプションは「Mean agreement between models」。
     ax.set_title("Between-Model Agreement (per-model mean r)",
                  fontsize=12, fontweight="bold", pad=12)
     ax.set_xlabel("Language model", fontsize=12)
@@ -802,7 +808,7 @@ def gen_fig_teacher_corr_matrix(results_dir: Path, out_dir: Path) -> None:
     inter-teacher Pearson correlation matrix and draws a seaborn-style
     annotated heatmap.  The 5 heatmaps are arranged in a 1×5 grid.
 
-    The correlation data is read from ``reports/model_agreement/teacher_corr_{trait}.tsv``
+    The correlation data is read from ``docs/homework/assets/teacher_corr_{trait}.tsv``
     via the existing ``read_teacher_corr()`` / ``teacher_corr_path()`` helpers.
 
     Parameters
@@ -810,7 +816,7 @@ def gen_fig_teacher_corr_matrix(results_dir: Path, out_dir: Path) -> None:
     results_dir : Path
         Results directory (unused directly, but kept for interface consistency
         with other gen_fig_* functions).  Teacher correlation TSVs are read
-        from ``reports/model_agreement/``.
+        from ``docs/homework/assets/``.
     out_dir : Path
         Directory where ``fig_teacher_corr_matrix.png`` will be saved.
 
@@ -877,10 +883,9 @@ def gen_fig_teacher_corr_matrix(results_dir: Path, out_dir: Path) -> None:
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=ax_cb, fraction=0.6, pad=0.05, label="Pearson r")
 
-    # The text baked into the figure matches the manuscript's caption,
-    # "Agreement between models". "Teacher" was the earlier name for the virtual
-    # rater; the manuscript now says "language model" and "virtual Big5 score", so
-    # the rendered strings drop it too. Variable names are internal and stay.
+    # 図内の文字は本文キャプション「Agreement between models」と揃える。
+    # 「teacher」は仮想教師の旧称で、原稿では「言語モデル」「仮想Big5スコア」に
+    # 改めているため、図に焼き込む文字列からも外す（変数名は内部識別子なので残す）。
     fig.suptitle(
         "Between-Model Pearson Correlation\n(4 Language Models × 5 Traits)",
         fontsize=14,
@@ -1063,7 +1068,7 @@ def gen_feature_distribution(features_df: pd.DataFrame, out_dir: Path) -> None:
                     valid_labels.append(label)
 
         if not data_list:
-            ax.set_title(f"{cat}", fontsize=12, fontweight="bold")
+            ax.set_title(CATEGORY_LABELS.get(cat, cat), fontsize=12, fontweight="bold")
             ax.text(0.5, 0.5, "No data", ha="center", va="center",
                     transform=ax.transAxes, fontsize=10, color="grey")
             return
@@ -1083,7 +1088,9 @@ def gen_feature_distribution(features_df: pd.DataFrame, out_dir: Path) -> None:
 
         ax.set_xticks(range(len(valid_labels)))
         ax.set_xticklabels(valid_labels, fontsize=9, rotation=40, ha="right")
-        ax.set_title(f"{cat}", fontsize=12, fontweight="bold", color=color)
+        # パネル見出しも表示名（宗田先生レビュー #6）。cat はデータ側のキー。
+        ax.set_title(CATEGORY_LABELS.get(cat, cat),
+                     fontsize=12, fontweight="bold", color=color)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         ax.tick_params(axis="y", labelsize=9)
@@ -1195,7 +1202,9 @@ def gen_corr_heatmap_block(features_df: pd.DataFrame, out_dir: Path) -> None:
     for cat, size in zip(category_order, cat_sizes):
         if size > 0:
             mid = cumulative + size / 2 - 0.5
-            ax.text(mid, -1.5, cat, ha="center", va="center",
+            # 描く文字は表示名（FU/SO/RT）。cat はデータ側のキーなので変えない。
+            ax.text(mid, -1.5, CATEGORY_LABELS.get(cat, cat),
+                    ha="center", va="center",
                     fontsize=12, fontweight="bold",
                     color={"PG": "#2166ac", "FILL": "#4daf4a",
                            "IX": "#ff7f00", "RESP": "#984ea3"}.get(cat, "black"))
@@ -1207,7 +1216,7 @@ def gen_corr_heatmap_block(features_df: pd.DataFrame, out_dir: Path) -> None:
     ax.set_yticks(range(n))
     ax.set_yticklabels(short_labels, fontsize=8)
 
-    ax.set_title("Pearson Correlation Matrix (Block: PG/FILL/IX/RESP)",
+    ax.set_title("Pearson Correlation Matrix (Block: PG/FU/SO/RT)",
                  fontsize=9, fontweight="bold", pad=24)
 
     # Colorbar
@@ -1405,8 +1414,8 @@ def gen_metadata_gender(
             try:
                 u_stat, p_val = mannwhitneyu(m_vals, f_vals, alternative="two-sided")
                 sig_marker = " *" if p_val < 0.05 else ""
-                # Significance is shown by the asterisk only; bold is not used as an
-                # encoding (table/figure convention: asterisks throughout).
+                # 有意性はアスタリスクのみで示す。太字による符号化は用いない
+                # （宗田レビュー[NOTE]405・#2180: 全図表でアスタリスクに統一）。
                 ax.set_title(
                     f"{feat}\nU={u_stat:.0f}, p={p_val:.4f}{sig_marker}",
                     fontsize=9,
@@ -1549,6 +1558,24 @@ def gen_metadata_age(
     plt.close(fig)
 
 
+def fmt_p(value: float, digits: int = 4) -> str:
+    """p 値を APA の慣行で文字列にする。
+
+    宗田先生レビュー 2026-09-30 PDF #48:
+    「慣例としてp値は0.0000にせず < 0.0001 などにします。
+      （ぴったしゼロと，< 0.0001 や <0.001 などでは意味が異なるため区別して表記します）」
+
+    置換検定の p は「観測値以上になった並べ替えの割合」なので 0 になり得るが、
+    それは「p がゼロ」ではなく「反復回数の分解能を下回った」という意味でしかない。
+    丸めて 0.0000 と書くと、真のゼロと区別できない表記になる。
+    小数第 ``digits`` 位で表せない値は下限を明示する。
+    """
+    threshold = 10 ** (-digits)
+    if value < threshold:
+        return f"$<${threshold:.{digits}f}"
+    return f"{value:.{digits}f}"
+
+
 def gen_tab_metadata_tests(
     features_df: pd.DataFrame, metadata_df: pd.DataFrame, out_dir: Path
 ) -> None:
@@ -1604,7 +1631,7 @@ def gen_tab_metadata_tests(
                 try:
                     u_stat, g_p = mannwhitneyu(m_vals, f_vals, alternative="two-sided")
                     u_str = f"{u_stat:.0f}"
-                    gp_str = f"{g_p:.4f}"
+                    gp_str = fmt_p(g_p)
                     if g_p < 0.05:
                         gp_str = f"{gp_str}*"
                 except ValueError:
@@ -1623,7 +1650,7 @@ def gen_tab_metadata_tests(
                 try:
                     r_p, p_p = pearsonr(age_vals, feat_vals)
                     rp_str = f"{r_p:.3f}"
-                    pp_str = f"{p_p:.4f}"
+                    pp_str = fmt_p(p_p)
                     if p_p < 0.05:
                         rp_str = f"\\textbf{{{rp_str}}}"
                         pp_str = f"\\textbf{{{pp_str}*}}"
@@ -1632,7 +1659,7 @@ def gen_tab_metadata_tests(
                 try:
                     rho_s, p_s = spearmanr(age_vals, feat_vals)
                     rs_str = f"{rho_s:.3f}"
-                    ps_str = f"{p_s:.4f}"
+                    ps_str = fmt_p(p_s)
                     if p_s < 0.05:
                         ps_str = f"{ps_str}*"
                 except ValueError:
@@ -1768,7 +1795,7 @@ def gen_tab_ensemble_permutation(results_dir: Path, out_dir: Path) -> None:
         r_str = f"{r_obs:.3f}"
         pc_str = f"{p_corr:.4f}"
 
-        # 有意はアスタリスク（Sig.列）で示す。太字は用いない（表記方針: 全表アスタリスク統一）。
+        # 有意はアスタリスク（Sig.列）で示す。太字は用いない（宗田レビュー: 全表アスタリスク統一）。
         rows.append(f"{trait} & {r_str} & {pc_str} & {sig_str} \\\\")
 
     body = "\n".join(rows)
@@ -1839,7 +1866,7 @@ def gen_tab_sensitivity_alpha(sensitivity_dir: Path, out_dir: Path) -> None:
         # 3-decimal main-text value (ensemble C r_obs = 0.432).
         r_str = f"{row['r_obs']:.4f}"
         p_str = f"{row['p_value']:.4f}"
-        # 採用した alpha 行は太字ではなくダガー記号で示す（表記方針:
+        # 採用した alpha 行は太字ではなくダガー記号で示す（宗田レビュー方針:
         # 表の強調に太字を用いない）。有意表示ではなく「本文採用値」の目印。
         if abs(a - adopted_alpha) < 1e-9:
             a_str = f"{a_str}$^{{\\dagger}}$"
@@ -1952,8 +1979,9 @@ def gen_tab_feature_definitions(out_dir: Path, lang: str = "ja") -> None:
     out_dir : Path
         Directory where the table will be saved.
     lang : {"ja", "en"}
-        Caption language. ``"ja"`` writes ``tab_feature_definitions.tex``;
-        ``"en"`` writes ``tab_feature_definitions_en.tex``.
+        Caption language. ``"ja"`` writes ``tab_feature_definitions.tex``
+        (used by the Japanese manuscript); ``"en"`` writes
+        ``tab_feature_definitions_en.tex`` (used by ``paper1_en_20260922.tex``).
     """
     if lang not in ("ja", "en"):
         raise ValueError(f"lang must be 'ja' or 'en', got {lang!r}")
@@ -1971,8 +1999,10 @@ def gen_tab_feature_definitions(out_dir: Path, lang: str = "ja") -> None:
         name_tex = feat.name.replace("_", r"\_")
         algo_tex = _escape_latex(feat.algorithm)
         summary_tex = _escape_latex(feat.summary)
+        # category ではなく category_label を出す。実装のプレフィクスは変えずに
+        # 論文の呼称だけを FU / SO / RT にするため（宗田先生レビュー #6）。
         rows.append(
-            f"{name_tex} & {feat.category} & {feat.classification} "
+            f"{name_tex} & {feat.category_label} & {feat.classification} "
             f"& {summary_tex} & {algo_tex} \\\\"
         )
 
@@ -1987,28 +2017,41 @@ def gen_tab_feature_definitions(out_dir: Path, lang: str = "ja") -> None:
         next_page = "（次ページに続く）"
         filename = "tab_feature_definitions.tex"
     else:
+        # 略語のフルスペルをキャプションに入れる（宗田先生 #23）。
         caption = (
-            "Definitions of the 19 interactional features. The Class.\\ column marks "
+            "Definitions of the 19 interactional features. Categories are "
+            "PG (pause/gap), FU (filler use), SO (sequence organization) and "
+            "RT (response typing). The Classification column marks "
             "each feature as Classical (established in prior work) or Novel "
-            "(introduced here). Names are the identifiers used in the implementation."
+            "(introduced here). The prefix of an identifier is the implementation's own "
+            "abbreviation, retained so that a reported value can be traced to the released code."
         )
         continued = "\\tablename~\\thetable{} (continued)"
         next_page = "(continued on the next page)"
         filename = "tab_feature_definitions_en.tex"
 
+    # 見出しの変更（2026-09-30・宗田先生レビュー #17/#19/#21）
+    #   Cat. -> Category、Class. -> Classification: 「略す必要性はないのでフルスペルで良い」
+    #   Name -> Identifier、Summary -> Feature: #21 で「Name は読者に優しくない」との指摘。
+    #     ただし実装識別子の列は特徴量とコードの対応表そのもので、再現性の主張の土台なので
+    #     削除しない。読者向けの名前は Summary 列に既に入っている（Speech ratio 等）ので、
+    #     見出しを付け替えて2列の役割を明示する形にした。
+    #   p{} の幅を 2.2->1.9cm / 3.9->3.6cm に詰めたのは、見出しが長くなった分を吸収して
+    #     本文幅を超えないようにするため。Overfull hbox が出たらここを見る。
+    header = "Identifier & Category & Classification & Feature & Algorithm \\\\\n"
     latex = (
         "{\\footnotesize\n"
         "\\setlength{\\tabcolsep}{4pt}\n"
-        "\\begin{longtable}{lllp{2.2cm}p{3.9cm}}\n"
+        "\\begin{longtable}{lllp{1.9cm}p{3.6cm}}\n"
         f"\\caption{{{caption}}}\n"
         "\\label{tab:feature_def}\\\\\n"
         "\\toprule\n"
-        "Name & Cat. & Class. & Summary & Algorithm \\\\\n"
+        f"{header}"
         "\\midrule\n"
         "\\endfirsthead\n"
         f"\\multicolumn{{5}}{{c}}{{{continued}}}\\\\\n"
         "\\toprule\n"
-        "Name & Cat. & Class. & Summary & Algorithm \\\\\n"
+        f"{header}"
         "\\midrule\n"
         "\\endhead\n"
         "\\midrule\n"
@@ -2091,7 +2134,7 @@ def gen_fig_predicted_vs_observed(
 
     For each of 5 Big5 traits:
     1. Load ensemble scores (4-teacher average)
-    2. Merge with 19 interactional features
+    2. Merge with 19 interaction features
     3. Run Ridge (α=100) 5-fold subject-wise CV
     4. Collect out-of-fold predictions
     5. Plot observed (x) vs predicted (y) scatter with regression line
@@ -2258,8 +2301,8 @@ def gen_fig_predicted_vs_observed(
         ax.set_aspect("equal", adjustable="box")
 
         # Annotate r and p
-        # Significance is shown by the asterisk and by colour; bold is not used as an
-        # encoding (table/figure convention: asterisks throughout).
+        # 有意性はアスタリスクと色で示す。太字による符号化は用いない
+        # （宗田レビュー[NOTE]405・#2180: 全図表でアスタリスクに統一）。
         sig_star = " *" if is_sig else ""
         ax.text(
             0.04, 0.96,
@@ -2648,7 +2691,7 @@ def gen_fig_bootstrap_variance(results_dir: Path, out_dir: Path) -> None:
         )
 
     # Y-axis labels: 有意性（ci_excludes_zero）は色・マーカーサイズ・凡例で
-    # 表現するため、ラベルの太字は用いない（表記方針:
+    # 表現するため、ラベルの太字は用いない（宗田レビュー[NOTE]389/405:
     # 太字で有意を示さずアスタリスク等に統一する方針。フォレストプロットでは
     # 色分け＋凡例が標準作法で、太字廃止による情報欠落はない）。
     labels = [row["feature"] for _, row in df.iterrows()]
@@ -2743,7 +2786,7 @@ def gen_tab_bootstrap_variance(results_dir: Path, out_dir: Path) -> None:
         ci_hi_str = f"{row['ci_upper']:.4f}"
 
         # 有意（95%CIがゼロを除外）は特徴量名にアスタリスクを付す。太字は用いない
-        # （表記方針: 全表アスタリスク統一）。
+        # （宗田レビュー: 全表アスタリスク統一）。
         if excl:
             feat_tex = f"{feat_tex}$^{{*}}$"
 
@@ -2860,7 +2903,7 @@ def gen_tab_permutation_coef(results_dir: Path, out_dir: Path) -> None:
         p_str = f"{row['p_value']:.4f}"
 
         # 有意（p<0.05）はp値にアスタリスクを付す。太字は用いない
-        # （表記方針: 全表アスタリスク統一）。
+        # （宗田レビュー: 全表アスタリスク統一）。
         if is_sig:
             p_str = f"{p_str}$^{{*}}$"
 
@@ -3293,10 +3336,10 @@ def main(argv: list[str] | None = None) -> None:
     results_dir = Path(args.results_dir)
     features_parquet = Path(args.features_parquet)
     out_dir = Path(args.out_dir)
-    # --bootstrap_dir is accepted but no longer read: the only generator that used
-    # it (gen_fig_bootstrap_C_radar) is no longer part of the batch. The option is
-    # kept so existing invocations do not break, and is not validated below,
-    # because requiring a directory nothing reads would fail runs needlessly.
+    # --bootstrap_dir は受け取るが読まない。使っていた唯一の生成関数
+    # (gen_fig_bootstrap_C_radar) を batch から外したため。既存の呼び出しを
+    # 壊さないようオプションは残すが、読まないディレクトリの存在チェックで
+    # 実行が落ちるのは無意味なので下のバリデーションからは外す。
 
     # --- Load metadata (optional — warn & skip if absent) ---
     metadata_df: pd.DataFrame | None = None
@@ -3358,22 +3401,20 @@ def main(argv: list[str] | None = None) -> None:
         #   tab_baseline_conditions.tex    -> gen_tab_baseline_conditions.py
         ("fig_teacher_heatmap.png", gen_fig_teacher_heatmap, [out_dir]),
         ("tab_feature_definitions.tex", gen_tab_feature_definitions, [out_dir]),
-        # English caption twin for the English manuscript. Body is identical;
-        # only the caption and continuation markers differ.
+        # English caption twin for paper1_en_20260922.tex. Body is identical; only the
+        # caption and continuation markers differ.
         ("tab_feature_definitions_en.tex", gen_tab_feature_definitions, [out_dir, "en"]),
         ("fig_feature_distribution.png", gen_feature_distribution, [features_df, out_dir]),
         ("tab_descriptive_stats_full.tex", gen_descriptive_stats_full_table, [features_df, out_dir]),
         ("fig_corr_heatmap_block.png + tab_corr_matrix.tex", gen_corr_heatmap_block, [features_df, out_dir]),
-        # --- Between-model agreement ---
+        # --- LLMモデル間一致度 ---
         ("fig_teacher_corr_matrix.png", gen_fig_teacher_corr_matrix, [results_dir, out_dir]),
-        # The three-stage figure and table use the R²/RMSE metric and have their
-        # own generators, kept out of this batch so a rerun cannot revert them to
-        # the correlation-based version:
-        #   python scripts/paper_figs/gen_fig_three_stage_r2.py --teacher ensemble
-        #   python scripts/paper_figs/gen_tab_three_stage_r2.py --teacher ensemble
-        # The second also writes the appendix r table, tab_three_stage_r.tex. The
-        # old correlation-based functions in this file
-        # (gen_fig_three_stage_comparison, gen_tab_three_stage) are never called.
+        # NOTE: fig_three_stage_comparison.png / tab_three_stage.tex は R²/RMSE 主指標版を
+        #   専用スクリプトで生成する（[山下6/22] 対応, 先祖返り防止のため batch から除外）:
+        #     .venv/bin/python scripts/paper_figs/gen_fig_three_stage_r2.py --teacher ensemble
+        #     .venv/bin/python scripts/paper_figs/gen_tab_three_stage_r2.py --teacher ensemble
+        #   付録 r 版 tab_three_stage_r.tex も後者が生成。旧 r 版関数
+        #   (gen_fig_three_stage_comparison / gen_tab_three_stage) は呼び出さない。
     ]
 
     # --- Metadata-related generators (only when metadata is available) ---
